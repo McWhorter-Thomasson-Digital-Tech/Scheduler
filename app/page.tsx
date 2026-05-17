@@ -1,65 +1,134 @@
-import Image from "next/image";
+'use client';
+
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/contexts/AuthContext';
+import { SchedulerCalendar } from '@/components/calendar/SchedulerCalendar';
+import { ExternalTaskList } from '@/components/calendar/ExternalTaskList';
+import { TaskEventModal } from '@/components/calendar/TaskEventModal';
+import styles from '@/styles/glassmorphism.module.css';
+import { LogOut } from 'lucide-react';
+import { v4 as uuidv4 } from 'uuid';
 
 export default function Home() {
+  const { user, loading, logout } = useAuth();
+  const router = useRouter();
+
+  const [events, setEvents] = useState<any[]>([]);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState<any>(null);
+
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push('/login');
+    }
+  }, [user, loading, router]);
+
+  if (loading || !user) return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+
+  // Calendar Event Handlers
+  const handleEventReceive = (info: any) => {
+    const newEvent = {
+      id: uuidv4(),
+      title: info.event.title,
+      start: info.event.startStr,
+      end: info.event.endStr,
+      backgroundColor: info.event.backgroundColor,
+      borderColor: info.event.borderColor,
+      extendedProps: {
+        actualStart: null,
+        actualEnd: null,
+      }
+    };
+    setEvents([...events, newEvent]);
+    info.revert(); // Let React state drive the render
+  };
+
+  const handleEventDrop = (info: any) => {
+    setEvents(events.map(ev => 
+      ev.id === info.event.id 
+        ? { ...ev, start: info.event.startStr, end: info.event.endStr } 
+        : ev
+    ));
+  };
+
+  const handleEventResize = (info: any) => {
+    setEvents(events.map(ev => 
+      ev.id === info.event.id 
+        ? { ...ev, start: info.event.startStr, end: info.event.endStr } 
+        : ev
+    ));
+  };
+
+  const handleEventClick = (info: any) => {
+    const eventObj = events.find(e => e.id === info.event.id) || info.event;
+    setSelectedEvent(eventObj);
+    setIsModalOpen(true);
+  };
+
+  // Modal Handlers
+  const handleModalSave = (updatedEvent: any) => {
+    setEvents(events.map(ev => ev.id === updatedEvent.id ? updatedEvent : ev));
+  };
+
+  const handleModalDelete = (eventId: string) => {
+    setEvents(events.filter(ev => ev.id !== eventId));
+  };
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
+    <div className="flex flex-col h-screen overflow-hidden bg-[var(--bg-primary)]">
+      {/* Header Bar */}
+      <header className={`${styles.glassPanel} px-6 py-3 flex justify-between items-center border-b border-[var(--glass-border)] z-10 relative`}>
+        <div className="flex items-center gap-4">
+          <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-500 to-purple-500 shadow-lg shadow-blue-500/20"></div>
+          <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-400">
+            Scheduler
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+        <div className="flex items-center gap-4">
+          <div className="text-sm">
+            <span className="text-[var(--text-secondary)]">Logged in as </span>
+            <span className="font-semibold">{user.full_name}</span>
+            <span className="ml-2 px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 text-xs uppercase tracking-wider border border-blue-500/30">
+              {user.role}
+            </span>
+          </div>
+          <button 
+            onClick={logout}
+            className="p-2 text-[var(--text-secondary)] hover:text-white transition-colors"
+            title="Log out"
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+            <LogOut className="w-5 h-5" />
+          </button>
         </div>
-      </main>
+      </header>
+
+      {/* Main Content Area */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* Sidebar */}
+        <aside className="w-80 shrink-0 border-r border-[var(--glass-border)] shadow-xl z-10 relative bg-black/20 backdrop-blur-xl">
+          <ExternalTaskList />
+        </aside>
+
+        {/* Calendar View */}
+        <main className="flex-1 p-6 overflow-hidden relative">
+          <SchedulerCalendar 
+            events={events}
+            onEventReceive={handleEventReceive}
+            onEventDrop={handleEventDrop}
+            onEventResize={handleEventResize}
+            onEventClick={handleEventClick}
+          />
+        </main>
+      </div>
+
+      <TaskEventModal 
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        event={selectedEvent}
+        onSave={handleModalSave}
+        onDelete={handleModalDelete}
+      />
     </div>
   );
 }
