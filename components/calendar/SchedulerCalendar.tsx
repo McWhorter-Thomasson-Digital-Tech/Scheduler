@@ -131,6 +131,8 @@ export function SchedulerCalendar({
         allDaySlot={false}
         nowIndicator={true}
         eventClassNames="cursor-pointer"
+        eventLongPressDelay={100}
+        selectLongPressDelay={100}
       />
     </div>
   );

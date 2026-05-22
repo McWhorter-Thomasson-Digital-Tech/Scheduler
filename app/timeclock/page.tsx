@@ -246,7 +246,7 @@ export default function TimeClockPage() {
                     </div>
                   </button>
                   {activeTask.owner_user_id === user?.id && (
-                    <button 
+                    <button
                       onClick={() => handleResetTask(activeTask)}
                       className="mt-6 text-sm flex items-center gap-2 text-[var(--text-secondary)] hover:text-white transition-colors"
                     >
@@ -322,9 +322,9 @@ export default function TimeClockPage() {
                         {formatElapsed(differenceInSeconds(new Date(task.actual_end_time!), new Date(task.actual_start_time!)))}
                       </span>
                       {task.owner_user_id === user?.id && (
-                        <button 
+                        <button
                           onClick={() => handleResetTask(task)}
-                          className="opacity-0 group-hover:opacity-100 p-1 hover:bg-white/10 rounded transition-all text-[var(--text-secondary)] hover:text-white"
+                          className="opacity-100 md:opacity-0 group-hover:opacity-100 p-1 hover:bg-white/10 rounded transition-all text-[var(--text-secondary)] hover:text-white"
                           title="Reset Timer"
                         >
                           <RotateCcw className="w-3.5 h-3.5" />

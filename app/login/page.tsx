@@ -41,7 +41,7 @@ export default function LoginPage() {
           password,
         });
         if (signInError) throw signInError;
-        
+
         await refreshSession();
         router.push('/');
       }
@@ -61,7 +61,7 @@ export default function LoginPage() {
         <h1 className="text-2xl font-bold mb-6 text-center">
           {isSignUp ? 'Create an Account' : 'Sign In to ChronoDo'}
         </h1>
-        
+
         {error && (
           <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm text-center">
             {error}
@@ -70,32 +70,32 @@ export default function LoginPage() {
 
         <form onSubmit={handleSubmit} className="space-y-4 mb-6">
           {isSignUp && (
-            <input 
-              type="text" 
-              placeholder="User Name" 
+            <input
+              type="text"
+              placeholder="User Name"
               required
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
               className={styles.glassInput}
             />
           )}
-          <input 
-            type="email" 
-            placeholder="Email" 
+          <input
+            type="email"
+            placeholder="Email"
             required
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             className={styles.glassInput}
           />
-          <input 
-            type="password" 
-            placeholder="Password" 
+          <input
+            type="password"
+            placeholder="Password"
             required
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             className={styles.glassInput}
           />
-          <button 
+          <button
             type="submit"
             disabled={loading}
             className={`${styles.glassButton} ${styles.glassButtonPrimary} w-full`}
@@ -106,12 +106,12 @@ export default function LoginPage() {
 
         <div className="text-center text-sm text-[var(--text-secondary)]">
           {isSignUp ? 'Already have an account? ' : "Don't have an account? "}
-          <button 
+          <button
             type="button"
             onClick={() => {
               setIsSignUp(!isSignUp);
               setError(null);
-            }} 
+            }}
             className="text-blue-400 hover:text-blue-300 font-medium transition-colors"
           >
             {isSignUp ? 'Sign In' : 'Sign Up'}

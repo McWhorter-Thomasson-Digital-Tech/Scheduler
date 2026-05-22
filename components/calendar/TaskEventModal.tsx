@@ -52,7 +52,7 @@ export function TaskEventModal({ isOpen, onClose, event, onSave, onDelete, onDup
           .eq('organization_id', orgId)
           .eq('user_id', user.id)
           .single();
-        
+
         // Check if the related role name is 'employee'
         if (data && (data.roles as any)?.name === 'employee') {
           setIsEmployee(true);
@@ -63,7 +63,7 @@ export function TaskEventModal({ isOpen, onClose, event, onSave, onDelete, onDup
         setIsEmployee(false); // Default to false if not in an org or no user
       }
     };
-    
+
     if (isOpen) {
       fetchRole();
     }
@@ -94,7 +94,7 @@ export function TaskEventModal({ isOpen, onClose, event, onSave, onDelete, onDup
 
   const handleSave = async () => {
     const supabase = createClient();
-    
+
     // Update the database
     if (event.id) {
       await supabase.from('tasks_events').update({
@@ -107,7 +107,7 @@ export function TaskEventModal({ isOpen, onClose, event, onSave, onDelete, onDup
         actual_end_time: actualEnd || null
       }).eq('id', event.id);
     }
-    
+
     onSave({
       ...event,
       title,
@@ -128,7 +128,7 @@ export function TaskEventModal({ isOpen, onClose, event, onSave, onDelete, onDup
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-      <div className={`${styles.glassCard} w-full max-w-lg mx-4 flex flex-col max-h-[90vh]`}>
+      <div className={`${styles.glassCard} w-full max-w-lg mx-2 sm:mx-4 flex flex-col max-h-[90vh]`}>
         <div className="flex justify-between items-center p-4 border-b border-[var(--glass-border)]">
           <h2 className="text-xl font-semibold">{event.id ? 'Edit Task' : 'New Task'}</h2>
           <button onClick={onClose} className="p-1 hover:bg-white/10 rounded-full transition-colors">
@@ -136,13 +136,13 @@ export function TaskEventModal({ isOpen, onClose, event, onSave, onDelete, onDup
           </button>
         </div>
 
-        <div className="p-6 overflow-y-auto flex-1 space-y-6">
+        <div className="p-3 sm:p-6 overflow-y-auto flex-1 space-y-6">
           {/* Basic Info */}
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium mb-1 text-[var(--text-secondary)]">Title</label>
-              <input 
-                type="text" 
+              <input
+                type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 className={`${styles.glassInput} ${isEmployee ? 'opacity-50 cursor-not-allowed' : ''}`}
@@ -152,7 +152,7 @@ export function TaskEventModal({ isOpen, onClose, event, onSave, onDelete, onDup
 
             <div>
               <label className="block text-sm font-medium mb-1 text-[var(--text-secondary)]">Description</label>
-              <textarea 
+              <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 rows={3}
@@ -164,8 +164,8 @@ export function TaskEventModal({ isOpen, onClose, event, onSave, onDelete, onDup
             <div>
               <label className="block text-sm font-medium mb-1 text-[var(--text-secondary)]">Task Color</label>
               <div className="flex items-center gap-3">
-                <input 
-                  type="color" 
+                <input
+                  type="color"
                   value={colorCode}
                   onChange={(e) => setColorCode(e.target.value)}
                   className="w-10 h-10 rounded cursor-pointer border-none bg-transparent"
@@ -177,12 +177,12 @@ export function TaskEventModal({ isOpen, onClose, event, onSave, onDelete, onDup
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="min-w-0">
                 <label className="block text-sm font-medium mb-1 text-[var(--text-secondary)] flex items-center gap-1">
                   <Clock className="w-4 h-4" /> Scheduled Start
                 </label>
-                <input 
+                <input
                   type={event?.allDay ? "date" : "datetime-local"}
                   value={scheduledStart ? format(new Date(scheduledStart), event?.allDay ? "yyyy-MM-dd" : "yyyy-MM-dd'T'HH:mm") : ''}
                   onChange={(e) => {
@@ -198,15 +198,16 @@ export function TaskEventModal({ isOpen, onClose, event, onSave, onDelete, onDup
                       setScheduledStart(new Date(e.target.value).toISOString());
                     }
                   }}
-                  className={styles.glassInput}
+                  className={`${styles.glassInput} w-full max-w-full min-w-0 text-xs sm:text-sm`}
+                  style={{ paddingLeft: '0px', paddingRight: '0px' }}
                   disabled={isEmployee}
                 />
               </div>
-              <div>
+              <div className="min-w-0">
                 <label className="block text-sm font-medium mb-1 text-[var(--text-secondary)] flex items-center gap-1">
                   <Clock className="w-4 h-4" /> Scheduled End
                 </label>
-                <input 
+                <input
                   type={event?.allDay ? "date" : "datetime-local"}
                   value={scheduledEnd ? format(new Date(scheduledEnd), event?.allDay ? "yyyy-MM-dd" : "yyyy-MM-dd'T'HH:mm") : ''}
                   onChange={(e) => {
@@ -222,7 +223,8 @@ export function TaskEventModal({ isOpen, onClose, event, onSave, onDelete, onDup
                       setScheduledEnd(new Date(e.target.value).toISOString());
                     }
                   }}
-                  className={styles.glassInput}
+                  className={`${styles.glassInput} w-full max-w-full min-w-0 text-xs sm:text-sm`}
+                  style={{ paddingLeft: '0px', paddingRight: '0px' }}
                   disabled={isEmployee}
                 />
               </div>
@@ -232,24 +234,26 @@ export function TaskEventModal({ isOpen, onClose, event, onSave, onDelete, onDup
           {/* Time Tracking Section */}
           <div className="pt-4 border-t border-[var(--glass-border)]">
             <h3 className="text-sm font-semibold mb-3 uppercase tracking-wider text-[var(--accent-primary)]">Time Tracking</h3>
-            
-            <div className="grid grid-cols-2 gap-4 mb-3">
-              <div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-3">
+              <div className="min-w-0">
                 <label className="block text-sm font-medium mb-1 text-[var(--text-secondary)]">Actual Start</label>
-                <input 
-                  type="datetime-local" 
+                <input
+                  type="datetime-local"
                   value={actualStart ? format(new Date(actualStart), "yyyy-MM-dd'T'HH:mm") : ''}
                   onChange={(e) => setActualStart(e.target.value ? new Date(e.target.value).toISOString() : '')}
-                  className={styles.glassInput}
+                  className={`${styles.glassInput} w-full max-w-full min-w-0 text-xs sm:text-sm`}
+                  style={{ paddingLeft: '0px', paddingRight: '0px' }}
                 />
               </div>
-              <div>
+              <div className="min-w-0">
                 <label className="block text-sm font-medium mb-1 text-[var(--text-secondary)]">Actual End</label>
-                <input 
-                  type="datetime-local" 
+                <input
+                  type="datetime-local"
                   value={actualEnd ? format(new Date(actualEnd), "yyyy-MM-dd'T'HH:mm") : ''}
                   onChange={(e) => setActualEnd(e.target.value ? new Date(e.target.value).toISOString() : '')}
-                  className={styles.glassInput}
+                  className={`${styles.glassInput} w-full max-w-full min-w-0 text-xs sm:text-sm`}
+                  style={{ paddingLeft: '0px', paddingRight: '0px' }}
                 />
               </div>
             </div>
@@ -265,7 +269,7 @@ export function TaskEventModal({ isOpen, onClose, event, onSave, onDelete, onDup
         <div className="p-4 border-t border-[var(--glass-border)] flex justify-between">
           <div className="flex gap-2">
             {event.id && !isEmployee && (
-              <button 
+              <button
                 onClick={() => { onDelete(event.id); onClose(); }}
                 className="text-red-400 hover:text-red-300 text-sm font-medium px-4 py-2"
               >
@@ -273,7 +277,7 @@ export function TaskEventModal({ isOpen, onClose, event, onSave, onDelete, onDup
               </button>
             )}
             {event.id && !isEmployee && onDuplicate && (
-              <button 
+              <button
                 onClick={() => { onDuplicate(event); onClose(); }}
                 className="text-blue-400 hover:text-blue-300 text-sm font-medium px-4 py-2"
               >
@@ -281,7 +285,7 @@ export function TaskEventModal({ isOpen, onClose, event, onSave, onDelete, onDup
               </button>
             )}
           </div>
-          
+
           <div className="flex gap-2">
             <button onClick={onClose} className={styles.glassButton}>
               Cancel

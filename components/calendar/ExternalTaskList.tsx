@@ -80,7 +80,9 @@ export function ExternalTaskList({ events = [], calendarView, onDragStart }: Ext
             },
             create: true, // creates a new event when dropped
           };
-        }
+        },
+        longPressDelay: 100,
+        minDistance: 3
       });
     }
 

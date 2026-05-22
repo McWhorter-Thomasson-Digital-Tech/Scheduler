@@ -114,18 +114,30 @@ body {
 
 /* Make resize handles much larger and more visible for easier dragging on mobile */
 .fc .fc-event-resizer {
-  display: flex !important;
+  display: none;
+  /* Hide by default, let FC handle it, but we override it to flex below */
   justify-content: center !important;
   align-items: center !important;
   z-index: 10 !important;
 }
 
+.fc .fc-event:hover .fc-event-resizer,
+.fc-theme-standard .fc-event-selected .fc-event-resizer {
+  display: flex !important;
+}
+
 /* Vertical events (TimeGrid) */
 .fc .fc-v-event .fc-event-resizer-end {
+  width: 100% !important;
   height: 12px !important;
   bottom: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
   background: rgba(255, 255, 255, 0.2) !important;
   cursor: ns-resize !important;
+  border: none !important;
+  border-radius: 0 !important;
+  margin: 0 !important;
 }
 
 .fc .fc-v-event .fc-event-resizer-end::after {
@@ -140,11 +152,18 @@ body {
 
 /* Horizontal events (DayGrid) */
 .fc .fc-h-event .fc-event-resizer-end {
+  height: 100% !important;
   width: 24px !important;
   right: 0 !important;
+  top: 0 !important;
+  bottom: 0 !important;
   background: rgba(255, 255, 255, 0.2) !important;
   cursor: ew-resize !important;
+  border: none !important;
+  border-radius: 0 !important;
+  margin: 0 !important;
 }
+
 
 .fc .fc-h-event .fc-event-resizer-end::after {
   content: "";
