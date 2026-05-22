@@ -5,6 +5,7 @@ import { differenceInMinutes, format, parseISO } from 'date-fns';
 import styles from '@/styles/glassmorphism.module.css';
 import { X, Clock, User, Briefcase } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { createClient } from '@/lib/supabase/client';
 
 interface TaskEventModalProps {
   isOpen: boolean;
@@ -12,27 +13,63 @@ interface TaskEventModalProps {
   event: any; // The FullCalendar event object or plain object
   onSave: (updatedEvent: any) => void;
   onDelete: (eventId: string) => void;
+  onDuplicate?: (event: any) => void;
 }
 
-export function TaskEventModal({ isOpen, onClose, event, onSave, onDelete }: TaskEventModalProps) {
+export function TaskEventModal({ isOpen, onClose, event, onSave, onDelete, onDuplicate }: TaskEventModalProps) {
   const { user } = useAuth();
   const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [scheduledStart, setScheduledStart] = useState('');
+  const [scheduledEnd, setScheduledEnd] = useState('');
   const [actualStart, setActualStart] = useState('');
   const [actualEnd, setActualEnd] = useState('');
+  const [colorCode, setColorCode] = useState('');
+  const [isEmployee, setIsEmployee] = useState(false);
 
   useEffect(() => {
     if (event) {
       setTitle(event.title || '');
-      // Mocking actual times for now if they exist in extendedProps
+      setDescription(event.extendedProps?.description || '');
+      const sStart = event.startStr || (event.start instanceof Date ? event.start.toISOString() : event.start);
+      const sEnd = event.endStr || (event.end instanceof Date ? event.end.toISOString() : event.end);
+      setScheduledStart(sStart || '');
+      setScheduledEnd(sEnd || '');
       setActualStart(event.extendedProps?.actualStart || '');
       setActualEnd(event.extendedProps?.actualEnd || '');
+      setColorCode(event.extendedProps?.color_code || event.backgroundColor || '#3b82f6');
     }
   }, [event]);
 
-  if (!isOpen || !event) return null;
+  useEffect(() => {
+    const fetchRole = async () => {
+      const orgId = event?.extendedProps?.owner_organization_id;
+      if (orgId && user?.id) {
+        const supabase = createClient();
+        const { data } = await supabase
+          .from('organization_members')
+          .select('roles(name)')
+          .eq('organization_id', orgId)
+          .eq('user_id', user.id)
+          .single();
+        
+        // Check if the related role name is 'employee'
+        if (data && (data.roles as any)?.name === 'employee') {
+          setIsEmployee(true);
+        } else {
+          setIsEmployee(false);
+        }
+      } else {
+        setIsEmployee(false); // Default to false if not in an org or no user
+      }
+    };
+    
+    if (isOpen) {
+      fetchRole();
+    }
+  }, [event, user, isOpen]);
 
-  const scheduledStart = event.startStr || event.start?.toISOString();
-  const scheduledEnd = event.endStr || event.end?.toISOString();
+  if (!isOpen || !event) return null;
 
   // Variance Calculation
   let varianceMessage = '';
@@ -55,20 +92,39 @@ export function TaskEventModal({ isOpen, onClose, event, onSave, onDelete }: Tas
     }
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    const supabase = createClient();
+    
+    // Update the database
+    if (event.id) {
+      await supabase.from('tasks_events').update({
+        title,
+        description: description || null,
+        color_code: colorCode || null,
+        scheduled_start_time: scheduledStart || null,
+        scheduled_end_time: scheduledEnd || null,
+        actual_start_time: actualStart || null,
+        actual_end_time: actualEnd || null
+      }).eq('id', event.id);
+    }
+    
     onSave({
       ...event,
       title,
+      start: scheduledStart,
+      end: scheduledEnd,
+      backgroundColor: colorCode,
+      borderColor: colorCode,
       extendedProps: {
         ...event.extendedProps,
+        description,
+        color_code: colorCode,
         actualStart,
         actualEnd
       }
     });
     onClose();
   };
-
-  const isEmployee = user?.role === 'employee';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
@@ -89,9 +145,36 @@ export function TaskEventModal({ isOpen, onClose, event, onSave, onDelete }: Tas
                 type="text" 
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                className={styles.glassInput}
-                disabled={isEmployee} // Employees might only be able to track time
+                className={`${styles.glassInput} ${isEmployee ? 'opacity-50 cursor-not-allowed' : ''}`}
+                disabled={isEmployee}
               />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-1 text-[var(--text-secondary)]">Description</label>
+              <textarea 
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={3}
+                className={`${styles.glassInput} resize-none ${isEmployee ? 'opacity-50 cursor-not-allowed' : ''}`}
+                disabled={isEmployee}
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-1 text-[var(--text-secondary)]">Task Color</label>
+              <div className="flex items-center gap-3">
+                <input 
+                  type="color" 
+                  value={colorCode}
+                  onChange={(e) => setColorCode(e.target.value)}
+                  className="w-10 h-10 rounded cursor-pointer border-none bg-transparent"
+                  disabled={isEmployee}
+                />
+                <span className="text-xs text-[var(--text-secondary)]">
+                  Override position color for this task
+                </span>
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -99,17 +182,49 @@ export function TaskEventModal({ isOpen, onClose, event, onSave, onDelete }: Tas
                 <label className="block text-sm font-medium mb-1 text-[var(--text-secondary)] flex items-center gap-1">
                   <Clock className="w-4 h-4" /> Scheduled Start
                 </label>
-                <div className="px-3 py-2 bg-black/20 rounded-md border border-[var(--glass-border)] text-sm">
-                  {scheduledStart ? format(new Date(scheduledStart), 'MMM d, h:mm a') : 'N/A'}
-                </div>
+                <input 
+                  type={event?.allDay ? "date" : "datetime-local"}
+                  value={scheduledStart ? format(new Date(scheduledStart), event?.allDay ? "yyyy-MM-dd" : "yyyy-MM-dd'T'HH:mm") : ''}
+                  onChange={(e) => {
+                    if (!e.target.value) {
+                      setScheduledStart('');
+                      return;
+                    }
+                    if (event?.allDay) {
+                      const [y, m, d] = e.target.value.split('-');
+                      const localDate = new Date(Number(y), Number(m) - 1, Number(d));
+                      setScheduledStart(localDate.toISOString());
+                    } else {
+                      setScheduledStart(new Date(e.target.value).toISOString());
+                    }
+                  }}
+                  className={styles.glassInput}
+                  disabled={isEmployee}
+                />
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1 text-[var(--text-secondary)] flex items-center gap-1">
                   <Clock className="w-4 h-4" /> Scheduled End
                 </label>
-                <div className="px-3 py-2 bg-black/20 rounded-md border border-[var(--glass-border)] text-sm">
-                  {scheduledEnd ? format(new Date(scheduledEnd), 'MMM d, h:mm a') : 'N/A'}
-                </div>
+                <input 
+                  type={event?.allDay ? "date" : "datetime-local"}
+                  value={scheduledEnd ? format(new Date(scheduledEnd), event?.allDay ? "yyyy-MM-dd" : "yyyy-MM-dd'T'HH:mm") : ''}
+                  onChange={(e) => {
+                    if (!e.target.value) {
+                      setScheduledEnd('');
+                      return;
+                    }
+                    if (event?.allDay) {
+                      const [y, m, d] = e.target.value.split('-');
+                      const localDate = new Date(Number(y), Number(m) - 1, Number(d));
+                      setScheduledEnd(localDate.toISOString());
+                    } else {
+                      setScheduledEnd(new Date(e.target.value).toISOString());
+                    }
+                  }}
+                  className={styles.glassInput}
+                  disabled={isEmployee}
+                />
               </div>
             </div>
           </div>
@@ -148,14 +263,24 @@ export function TaskEventModal({ isOpen, onClose, event, onSave, onDelete }: Tas
         </div>
 
         <div className="p-4 border-t border-[var(--glass-border)] flex justify-between">
-          {event.id && !isEmployee ? (
-            <button 
-              onClick={() => { onDelete(event.id); onClose(); }}
-              className="text-red-400 hover:text-red-300 text-sm font-medium px-4 py-2"
-            >
-              Delete
-            </button>
-          ) : <div></div>}
+          <div className="flex gap-2">
+            {event.id && !isEmployee && (
+              <button 
+                onClick={() => { onDelete(event.id); onClose(); }}
+                className="text-red-400 hover:text-red-300 text-sm font-medium px-4 py-2"
+              >
+                Delete
+              </button>
+            )}
+            {event.id && !isEmployee && onDuplicate && (
+              <button 
+                onClick={() => { onDuplicate(event); onClose(); }}
+                className="text-blue-400 hover:text-blue-300 text-sm font-medium px-4 py-2"
+              >
+                Duplicate
+              </button>
+            )}
+          </div>
           
           <div className="flex gap-2">
             <button onClick={onClose} className={styles.glassButton}>

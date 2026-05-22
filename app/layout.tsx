@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Scheduler | Employee Task Tracking",
+  title: "ChronoDo | Employee Task Tracking",
   description: "Web-based scheduling and task-tracking application",
 };
 

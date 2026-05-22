@@ -11,14 +11,16 @@
   --bg-secondary: #1a1a1a;
   --text-primary: #ededed;
   --text-secondary: #a1a1aa;
-  
-  --accent-primary: #3b82f6; /* Blue */
-  --accent-secondary: #8b5cf6; /* Purple */
-  
+
+  --accent-primary: #3b82f6;
+  /* Blue */
+  --accent-secondary: #8b5cf6;
+  /* Purple */
+
   --glass-bg: rgba(30, 30, 30, 0.6);
   --glass-border: rgba(255, 255, 255, 0.1);
   --glass-blur: 16px;
-  
+
   --calendar-border: rgba(255, 255, 255, 0.05);
 }
 
@@ -33,7 +35,34 @@ body {
   min-height: 100vh;
   /* subtle modern gradient background */
   background-image: radial-gradient(circle at 15% 50%, rgba(59, 130, 246, 0.1), transparent 25%),
-                    radial-gradient(circle at 85% 30%, rgba(139, 92, 246, 0.1), transparent 25%);
+    radial-gradient(circle at 85% 30%, rgba(139, 92, 246, 0.1), transparent 25%);
+}
+
+/* Custom Scrollbar Styles for a consistent look */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(255, 255, 255, 0.3);
+}
+
+/* Firefox scrollbar styling */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
 }
 
 /* FullCalendar Overrides for Dark Mode / Glass Theme */
@@ -75,10 +104,80 @@ body {
   border: none !important;
   border-radius: 6px !important;
   overflow: hidden;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.2) !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2) !important;
   transition: transform 0.1s ease;
 }
 
 .fc-event:hover {
   transform: scale(1.02);
+}
+
+/* Make resize handles much larger and more visible for easier dragging on mobile */
+.fc .fc-event-resizer {
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  z-index: 10 !important;
+}
+
+/* Vertical events (TimeGrid) */
+.fc .fc-v-event .fc-event-resizer-end {
+  height: 12px !important;
+  bottom: 0 !important;
+  background: rgba(255, 255, 255, 0.2) !important;
+  cursor: ns-resize !important;
+}
+
+.fc .fc-v-event .fc-event-resizer-end::after {
+  content: "";
+  display: block;
+  width: 30px;
+  height: 6px;
+  border-radius: 3px;
+  background-color: rgba(255, 255, 255, 0.8);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+/* Horizontal events (DayGrid) */
+.fc .fc-h-event .fc-event-resizer-end {
+  width: 24px !important;
+  right: 0 !important;
+  background: rgba(255, 255, 255, 0.2) !important;
+  cursor: ew-resize !important;
+}
+
+.fc .fc-h-event .fc-event-resizer-end::after {
+  content: "";
+  display: block;
+  height: 20px;
+  width: 6px;
+  border-radius: 3px;
+  background-color: rgba(255, 255, 255, 0.8);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+/* Responsive FullCalendar Header */
+@media (max-width: 768px) {
+  .fc .fc-toolbar.fc-header-toolbar {
+    flex-direction: column;
+    gap: 12px;
+    align-items: center;
+  }
+
+  .fc .fc-toolbar-title {
+    font-size: 1rem !important;
+  }
+
+  .fc .fc-toolbar-chunk {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+  }
+
+  /* Make view buttons slightly smaller on mobile */
+  .fc-button-group .fc-button,
+  .fc .fc-button {
+    padding: 0.35rem 0.65rem !important;
+    font-size: 0.875rem !important;
+  }
 }

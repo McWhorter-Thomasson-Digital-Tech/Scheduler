@@ -1,17 +1,37 @@
-export type Role = 'business' | 'employee' | 'individual';
-
-export interface Position {
+export interface Role {
   id: string;
-  title: string;
-  color_code: string;
+  name: string;
+  created_at: string;
+}
+
+export interface Organization {
+  id: string;
+  name: string;
+  created_at: string;
+}
+
+export interface OrganizationMember {
+  organization_id: string;
+  user_id: string;
+  role_id: string | null;
   created_at: string;
 }
 
 export interface Profile {
   id: string;
   full_name: string | null;
-  role: Role;
-  position_id: string | null;
+  created_at: string;
+}
+
+export interface Position {
+  id: string;
+  title: string;
+  color_code: string;
+  owner_organization_id: string | null;
+  owner_user_id: string | null;
+  daily_hours_goal: number | null;
+  weekly_hours_goal: number | null;
+  monthly_hours_goal: number | null;
   created_at: string;
 }
 
@@ -20,6 +40,7 @@ export interface TaskEvent {
   title: string;
   description: string | null;
   location: string | null;
+  color_code: string | null;
   
   scheduled_start_time: string;
   scheduled_end_time: string;
@@ -27,8 +48,13 @@ export interface TaskEvent {
   actual_start_time: string | null;
   actual_end_time: string | null;
   
+  is_all_day: boolean;
+  
   position_id: string | null;
   assigned_to: string | null;
+
+  owner_organization_id: string | null;
+  owner_user_id: string | null;
   
   created_at: string;
   updated_at: string;
