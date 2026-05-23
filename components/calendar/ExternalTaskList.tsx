@@ -81,7 +81,7 @@ export function ExternalTaskList({ events = [], calendarView, onDragStart }: Ext
             create: true, // creates a new event when dropped
           };
         },
-        longPressDelay: 100,
+        longPressDelay: 300,
         minDistance: 3
       });
     }
@@ -191,16 +191,32 @@ export function ExternalTaskList({ events = [], calendarView, onDragStart }: Ext
     return { scheduledHours, trackedHours, goal, label };
   };
 
-  const handleItemPointerDown = () => {
-    const handleMove = () => {
+  const handleItemPointerDown = (e: React.PointerEvent) => {
+    let timer: NodeJS.Timeout | null = null;
+
+    const startDrag = () => {
       if (onDragStart) onDragStart();
       cleanup();
     };
+
+    const handleMove = () => {
+      if (e.pointerType === 'mouse') {
+        startDrag();
+      }
+    };
+
     const cleanup = () => {
+      if (timer) clearTimeout(timer);
       window.removeEventListener('pointermove', handleMove);
       window.removeEventListener('pointerup', cleanup);
       window.removeEventListener('pointercancel', cleanup);
     };
+
+    if (e.pointerType === 'touch') {
+      // Wait for FC's longPressDelay to confirm it's a drag and not a scroll/tap
+      timer = setTimeout(startDrag, 350);
+    }
+
     window.addEventListener('pointermove', handleMove, { passive: true });
     window.addEventListener('pointerup', cleanup);
     window.addEventListener('pointercancel', cleanup);

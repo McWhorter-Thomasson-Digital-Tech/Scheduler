@@ -7,7 +7,7 @@ import { SchedulerCalendar } from '@/components/calendar/SchedulerCalendar';
 import { ExternalTaskList } from '@/components/calendar/ExternalTaskList';
 import { TaskEventModal } from '@/components/calendar/TaskEventModal';
 import styles from '@/styles/glassmorphism.module.css';
-import { LogOut, Clock, Menu } from 'lucide-react';
+import { LogOut, Clock, Menu, HelpCircle } from 'lucide-react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 
@@ -24,6 +24,7 @@ export default function Home() {
     end: new Date(),
     type: 'timeGridWeek'
   });
+  const [showHelp, setShowHelp] = useState(false);
 
   useEffect(() => {
     if (typeof window !== 'undefined' && window.innerWidth < 768) {
@@ -226,67 +227,104 @@ export default function Home() {
   };
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden bg-[var(--bg-primary)]">
-      {/* Header Bar */}
-      <header className={`${styles.glassPanel} px-4 md:px-6 py-3 flex justify-between items-center border-b border-[var(--glass-border)] z-10 relative`}>
-        <div className="flex items-center gap-2 md:gap-4">
-          <button
-            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-            className="p-2 text-[var(--text-secondary)] hover:text-white transition-colors"
-          >
-            <Menu className="w-6 h-6" />
-          </button>
-          <img src="/logo.png" alt="ChronoDo Logo" className="w-8 h-8 rounded-xl hidden sm:block shadow-lg shadow-blue-500/20" />
-          <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-400">
-            ChronoDo
-          </h1>
-        </div>
-        <div className="flex items-center gap-3 md:gap-6">
-          <Link
-            href="/timeclock"
-            className="px-3 md:px-4 py-2 rounded-lg bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20 transition-colors text-sm font-medium flex items-center gap-2"
-          >
-            <Clock className="w-4 h-4" />
-            <span className="hidden sm:inline">Time Clock</span>
-          </Link>
-          <div className="h-6 w-px bg-[var(--glass-border)]"></div>
-          <div className="text-sm hidden md:block">
-            <span className="text-[var(--text-secondary)]">Logged in as </span>
-            <span className="font-semibold">{user.full_name || 'User'}</span>
+    <div className="flex-1 w-full flex flex-col bg-transparent pb-[env(safe-area-inset-bottom)]">
+      {/* Sticky Top Section (Header + Mobile Sidebar) */}
+      <div className="sticky top-4 z-50 flex flex-col w-full relative">
+        {/* Header Bar */}
+        <header className={`${styles.glassCard} mx-4 px-4 md:px-6 py-4 flex justify-between items-center`}>
+          <div className="flex items-center gap-2 md:gap-4">
+            <button
+              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+              className="p-2 text-[var(--text-secondary)] hover:text-white transition-colors"
+            >
+              <Menu className="w-6 h-6" />
+            </button>
+            <img src="/logo.png" alt="ChronoDo Logo" className="w-8 h-8 rounded-xl hidden sm:block shadow-lg shadow-blue-500/20" />
+            <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-400">
+              ChronoDo
+            </h1>
           </div>
-          <button
-            onClick={logout}
-            className="p-2 text-[var(--text-secondary)] hover:text-white transition-colors"
-            title="Log out"
-          >
-            <LogOut className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-3 md:gap-6">
+            <button
+              onClick={() => setShowHelp(!showHelp)}
+              className="p-2 text-[var(--text-secondary)] hover:text-white transition-colors flex items-center gap-2"
+              title="Help"
+            >
+              <HelpCircle className="w-5 h-5" />
+              <span className="hidden md:inline text-sm font-medium">Help</span>
+            </button>
+            <div className="h-6 w-px bg-[var(--glass-border)] hidden md:block"></div>
+            <Link
+              href="/timeclock"
+              className="px-3 md:px-4 py-2 rounded-lg bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20 transition-colors text-sm font-medium flex items-center gap-2"
+            >
+              <Clock className="w-4 h-4" />
+              <span className="hidden sm:inline">Time Clock</span>
+            </Link>
+            <div className="h-6 w-px bg-[var(--glass-border)]"></div>
+            <div className="text-sm hidden md:block">
+              <span className="text-[var(--text-secondary)]">Logged in as </span>
+              <span className="font-semibold">{user.full_name || 'User'}</span>
+            </div>
+            <button
+              onClick={logout}
+              className="p-2 text-[var(--text-secondary)] hover:text-white transition-colors"
+              title="Log out"
+            >
+              <LogOut className="w-5 h-5" />
+            </button>
+          </div>
+        </header>
+
+        {/* Mobile Sidebar Dropdown */}
+        <div className={`md:hidden absolute top-full left-0 right-0 transition-all duration-300 ease-in-out origin-top overflow-hidden ${isSidebarOpen ? 'h-[calc(100dvh-120px)] opacity-100' : 'h-0 opacity-0'}`}>
+          <div className="w-full h-full px-8 py-6">
+            <aside className={`w-full h-full ${styles.glassCard} overflow-y-auto`}>
+              <ExternalTaskList
+                events={events}
+                calendarView={calendarView}
+                onDragStart={() => setIsSidebarOpen(false)}
+              />
+            </aside>
+          </div>
         </div>
-      </header>
+      </div>
 
       {/* Main Content Area */}
-      <div className="flex flex-1 overflow-hidden relative">
-        {/* Sidebar */}
+      <div className="flex flex-1 relative min-h-[calc(100vh-120px)] mt-8">
+        {/* Desktop Sidebar */}
         <div
-          className={`transition-all duration-300 ease-in-out shrink-0 absolute md:relative z-20 h-full ${isSidebarOpen ? 'w-[90%] md:w-80' : 'w-0'
+          className={`hidden md:block transition-all duration-300 ease-in-out shrink-0 relative z-40 ${isSidebarOpen ? 'w-[20rem]' : 'w-0'
             }`}
         >
-          <aside className={`absolute inset-y-0 left-0 w-[90vw] md:w-80 border-r border-[var(--glass-border)] shadow-xl bg-[var(--bg-primary)] md:bg-black/20 backdrop-blur-xl overflow-y-auto transition-transform duration-300 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
-            }`}>
+          <aside
+            className={`sticky top-[100px] h-[calc(100dvh-120px)] left-4 w-72 ${styles.glassCard} overflow-y-auto origin-left ${isSidebarOpen ? 'translate-x-0' : '-translate-x-[150%]'}`}
+            style={{ transition: 'all 300ms ease-in-out' }}
+          >
             <ExternalTaskList
               events={events}
               calendarView={calendarView}
-              onDragStart={() => {
-                if (window.innerWidth < 768) {
-                  setIsSidebarOpen(false);
-                }
-              }}
             />
           </aside>
         </div>
 
         {/* Calendar View */}
-        <main className="flex-1 p-6 overflow-hidden relative">
+        <main className="flex-1 flex flex-col px-4 pb-8 min-w-0">
+          {/* Help Dropdown Section */}
+          <div className={`shrink-0 overflow-hidden transition-all duration-300 ease-in-out ${showHelp ? 'max-h-96 opacity-100 mb-4' : 'max-h-0 opacity-0 mb-0'}`}>
+            <div className={`${styles.glassCard} p-6 relative`}>
+              <h3 className="text-lg font-semibold mb-3 text-white flex items-center gap-2">
+                <HelpCircle className="w-5 h-5 text-blue-400" />
+                How to Use the Scheduler
+              </h3>
+              <ul className="list-disc list-inside text-[var(--text-secondary)] space-y-2 text-sm max-w-3xl">
+                <li><strong>Create Tasks:</strong> Drag task roles from the left sidebar onto the calendar to create a new task.</li>
+                <li><strong>Edit Tasks:</strong> Click on any task on the calendar to change its title, time, or description.</li>
+                <li><strong>Move Tasks:</strong> Drag and drop existing tasks to different days, or use the bottom handle to resize the duration.</li>
+                <li><strong>Manage Roles:</strong> Add new positions or custom task types in the sidebar to organize your workflow.</li>
+              </ul>
+            </div>
+          </div>
           <SchedulerCalendar
             events={events}
             onEventReceive={handleEventReceive}

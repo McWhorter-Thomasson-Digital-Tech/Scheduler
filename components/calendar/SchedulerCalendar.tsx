@@ -27,6 +27,7 @@ export function SchedulerCalendar({
   isSidebarOpen
 }: SchedulerCalendarProps) {
   const calendarRef = useRef<FullCalendar>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const dragState = useRef({ offsetX: 0, offsetY: 0, moveHandler: null as any });
   const [scrollTime, setScrollTime] = useState<string>(() => {
     if (typeof window === 'undefined') return '06:00:00';
@@ -49,14 +50,19 @@ export function SchedulerCalendar({
   }, [scrollTime]);
 
   useEffect(() => {
-    // Wait for the 300ms CSS transition to finish before resizing
-    const timer = setTimeout(() => {
+    if (!containerRef.current) return;
+    
+    // Use ResizeObserver to smoothly update FullCalendar size during CSS transitions
+    const observer = new ResizeObserver(() => {
       if (calendarRef.current) {
         calendarRef.current.getApi().updateSize();
       }
-    }, 310);
-    return () => clearTimeout(timer);
-  }, [isSidebarOpen]);
+    });
+    
+    observer.observe(containerRef.current);
+    
+    return () => observer.disconnect();
+  }, []);
 
   const handleDragStart = (info: any) => {
     // Only apply custom mirror for Month view (DayGrid)
@@ -104,7 +110,7 @@ export function SchedulerCalendar({
   };
 
   return (
-    <div className={`${styles.glassCard} p-4 h-full flex flex-col`}>
+    <div ref={containerRef} className={`h-full flex flex-col`}>
       <FullCalendar
         ref={calendarRef}
         plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}

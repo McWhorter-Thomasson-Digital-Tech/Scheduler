@@ -127,7 +127,7 @@ export function TaskEventModal({ isOpen, onClose, event, onSave, onDelete, onDup
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+    <div className="fixed w-full h-full top-0 left-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
       <div className={`${styles.glassCard} w-full max-w-lg mx-2 sm:mx-4 flex flex-col max-h-[90vh]`}>
         <div className="flex justify-between items-center p-4 border-b border-[var(--glass-border)]">
           <h2 className="text-xl font-semibold">{event.id ? 'Edit Task' : 'New Task'}</h2>
@@ -136,7 +136,7 @@ export function TaskEventModal({ isOpen, onClose, event, onSave, onDelete, onDup
           </button>
         </div>
 
-        <div className="p-3 sm:p-6 overflow-y-auto flex-1 space-y-6">
+        <div className="p-4 sm:p-6 overflow-y-auto flex-1 space-y-6">
           {/* Basic Info */}
           <div className="space-y-4">
             <div>

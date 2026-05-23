@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { createClient } from '@/lib/supabase/client';
 import styles from '@/styles/glassmorphism.module.css';
-import { Clock, Play, Square, AlertCircle, ArrowLeft, RotateCcw } from 'lucide-react';
+import { Clock, Play, Square, AlertCircle, ArrowLeft, RotateCcw, HelpCircle } from 'lucide-react';
 import { format, differenceInSeconds, startOfDay, endOfDay, isToday } from 'date-fns';
 import { TaskEvent } from '@/types/database';
 import Link from 'next/link';
@@ -21,6 +21,7 @@ export default function TimeClockPage() {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [errorMsg, setErrorMsg] = useState('');
   const [fetching, setFetching] = useState(true);
+  const [showHelp, setShowHelp] = useState(false);
 
   // Live clock and timer
   useEffect(() => {
@@ -184,29 +185,54 @@ export default function TimeClockPage() {
   const completedTasks = tasks.filter(t => t.actual_start_time && t.actual_end_time && isToday(new Date(t.scheduled_start_time)));
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden bg-[var(--bg-primary)]">
+    <div className="flex-1 w-full flex flex-col bg-transparent pb-[env(safe-area-inset-bottom)]">
       {/* Header Bar */}
-      <header className={`${styles.glassPanel} px-6 py-4 flex justify-between items-center border-b border-[var(--glass-border)] z-10 relative`}>
+      <header className={`${styles.glassCard} sticky top-4 mt-4 mx-4 mb-4 px-6 py-4 flex justify-between items-center z-50`}>
         <div className="flex items-center gap-4">
           <Link href="/" className="p-2 hover:bg-white/5 rounded-full transition-colors text-[var(--text-secondary)] hover:text-white">
             <ArrowLeft className="w-5 h-5" />
           </Link>
-          <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-emerald-500 to-teal-500 shadow-lg shadow-emerald-500/20"></div>
+          <Clock className="w-7 h-7 text-emerald-400 drop-shadow-md" />
           <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-emerald-400 to-teal-400">
             Time Clock
           </h1>
         </div>
-        <div className="text-right">
-          <div className="text-2xl font-mono tracking-wider font-bold text-white">
+        <div className="flex items-center gap-4 md:gap-8">
+          <button
+            onClick={() => setShowHelp(!showHelp)}
+            className="p-2 text-[var(--text-secondary)] hover:text-white transition-colors flex items-center gap-2"
+          >
+            <HelpCircle className="w-5 h-5" />
+            <span className="hidden md:inline text-sm font-medium">Help</span>
+          </button>
+          <div className="text-right">
+            <div className="text-2xl font-mono tracking-wider font-bold text-white">
             {format(currentTime, 'h:mm:ss a')}
-          </div>
-          <div className="text-sm text-[var(--text-secondary)]">
-            {format(currentTime, 'EEEE, MMMM do, yyyy')}
+            </div>
+            <div className="text-sm text-[var(--text-secondary)]">
+              {format(currentTime, 'EEEE, MMMM do, yyyy')}
+            </div>
           </div>
         </div>
       </header>
 
-      <main className="flex-1 p-8 overflow-y-auto relative flex flex-col md:flex-row gap-8 max-w-7xl mx-auto w-full">
+      {/* Help Dropdown Section */}
+      <div className={`mx-4 overflow-hidden transition-all duration-300 ease-in-out ${showHelp ? 'max-h-96 opacity-100 mb-4' : 'max-h-0 opacity-0 mb-0'}`}>
+        <div className={`${styles.glassCard} p-6 relative`}>
+          <h3 className="text-lg font-semibold mb-3 text-white flex items-center gap-2">
+            <HelpCircle className="w-5 h-5 text-emerald-400" />
+            How to Use the Time Clock
+          </h3>
+          <ul className="list-disc list-inside text-[var(--text-secondary)] space-y-2 text-sm max-w-3xl">
+            <li><strong>Clock In:</strong> Select a task from your schedule on the right to start tracking your time.</li>
+            <li><strong>Clock Out:</strong> Click the large "Clock Out" button when you are finished or taking a break.</li>
+            <li><strong>Reset Timer:</strong> If you made a mistake, you can reset the timer using the reset button.</li>
+            <li><strong>Task Visibility:</strong> Only your tasks scheduled for today will appear here.</li>
+          </ul>
+        </div>
+      </div>
+
+      <main className="p-4 pt-0 pb-16 relative flex-1 flex flex-col md:flex-row gap-6 max-w-7xl mx-auto w-full">
         {/* Left Column: Active Task & Actions */}
         <div className="flex-1 flex flex-col gap-6">
           {errorMsg && (
@@ -217,8 +243,6 @@ export default function TimeClockPage() {
           )}
 
           <div className={`${styles.glassCard} p-8 flex-1 flex flex-col items-center justify-center text-center relative overflow-hidden group`}>
-            {/* Ambient Background Glow */}
-            <div className={`absolute inset-0 bg-gradient-to-b opacity-10 transition-colors duration-1000 ${activeTask ? 'from-emerald-500 to-transparent' : 'from-blue-500 to-transparent'}`}></div>
 
             <div className="relative z-10 flex flex-col items-center">
               {activeTask ? (
@@ -238,8 +262,8 @@ export default function TimeClockPage() {
                     onClick={handleClockOut}
                     className="group relative px-8 py-4 rounded-full overflow-hidden shadow-lg hover:shadow-red-500/20 transition-all duration-300 transform hover:scale-105 active:scale-95"
                   >
-                    <div className="absolute inset-0 bg-gradient-to-r from-red-600 to-rose-600 opacity-90 group-hover:opacity-100 transition-opacity"></div>
-                    <div className="absolute inset-0 border border-white/20 rounded-full"></div>
+                    <div className="absolute w-full h-full top-0 left-0 bg-gradient-to-r from-red-600 to-rose-600 opacity-90 group-hover:opacity-100 transition-opacity"></div>
+                    <div className="absolute w-full h-full top-0 left-0 border border-white/20 rounded-full"></div>
                     <div className="relative flex items-center gap-3 font-semibold text-lg text-white">
                       <Square className="w-5 h-5 fill-current" />
                       Clock Out
@@ -270,13 +294,13 @@ export default function TimeClockPage() {
 
         {/* Right Column: Task Lists */}
         <div className="w-full md:w-96 flex flex-col gap-6">
-          <div className={`${styles.glassPanel} rounded-2xl border border-[var(--glass-border)] p-6 flex-1 flex flex-col`}>
+          <div className={`${styles.glassCard} p-6 flex flex-col`}>
             <h3 className="text-lg font-semibold mb-4 text-white flex items-center justify-between">
               Your Schedule
               {fetching && <span className="text-xs font-normal text-blue-400 animate-pulse">Updating...</span>}
             </h3>
 
-            <div className="overflow-y-auto pr-2 flex-1 pb-4">
+            <div className="flex-1 pb-4">
               {availableTasks.length === 0 && !fetching && (
                 <div className="text-center p-6 m-2 text-[var(--text-secondary)] border border-dashed border-[var(--glass-border)] rounded-xl">
                   No available tasks for today.
@@ -311,7 +335,7 @@ export default function TimeClockPage() {
 
           {/* Completed Tasks Summary */}
           {completedTasks.length > 0 && (
-            <div className={`${styles.glassPanel} rounded-2xl border border-[var(--glass-border)] p-6`}>
+            <div className={`${styles.glassCard} p-6`}>
               <h3 className="text-sm font-semibold uppercase tracking-wider text-[var(--text-secondary)] mb-4">Completed Today</h3>
               <div className="space-y-3">
                 {completedTasks.map(task => (

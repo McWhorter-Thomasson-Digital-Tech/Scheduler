@@ -24,8 +24,55 @@
   --calendar-border: rgba(255, 255, 255, 0.05);
 }
 
+html {
+  scroll-behavior: smooth;
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+  background-color: #111529;
+  /* Default fallback matching dark mode background */
+  --blob-1-x: 0%;
+  --blob-1-y: 0%;
+  --blob-2-x: 100%;
+  --blob-2-y: 30%;
+  --blob-3-x: 0%;
+  --blob-3-y: 50%;
+  --blob-4-x: 20%;
+  --blob-4-y: 90%;
+  background-image:
+    radial-gradient(circle at var(--blob-1-x) var(--blob-1-y), color-mix(in srgb, #111529, transparent 75%), transparent 40%),
+    radial-gradient(circle at var(--blob-2-x) var(--blob-2-y), color-mix(in srgb, #9333ea, transparent 80%), transparent 40%),
+    radial-gradient(circle at var(--blob-3-x) var(--blob-3-y), color-mix(in srgb, #10b981, transparent 75%), transparent 40%),
+    radial-gradient(circle at var(--blob-4-x) var(--blob-4-y), color-mix(in srgb, #111529, transparent 75%), transparent 40%);
+  background-attachment: fixed;
+  animation: nebulaShift 20s infinite alternate ease-in-out;
+}
+
+@keyframes nebulaShift {
+  0% {
+    --blob-1-x: 0%;
+    --blob-1-y: 0%;
+    --blob-2-x: 100%;
+    --blob-2-y: 40%;
+    --blob-3-x: 0%;
+    --blob-3-y: 60%;
+    --blob-4-x: 20%;
+    --blob-4-y: 90%;
+  }
+
+  100% {
+    --blob-1-x: 80%;
+    --blob-1-y: 0%;
+    --blob-2-x: 50%;
+    --blob-2-y: 30%;
+    --blob-3-x: 50%;
+    --blob-3-y: 70%;
+    --blob-4-x: 60%;
+    --blob-4-y: 90%;
+  }
+}
+
 body {
-  background-color: var(--bg-primary);
   color: var(--text-primary);
   font-family: Arial, Helvetica, sans-serif;
   -webkit-font-smoothing: antialiased;
@@ -33,9 +80,7 @@ body {
   margin: 0;
   padding: 0;
   min-height: 100vh;
-  /* subtle modern gradient background */
-  background-image: radial-gradient(circle at 15% 50%, rgba(59, 130, 246, 0.1), transparent 25%),
-    radial-gradient(circle at 85% 30%, rgba(139, 92, 246, 0.1), transparent 25%);
+  /* Rich floaty animated background is now rendered via DOM elements in layout.tsx */
 }
 
 /* Custom Scrollbar Styles for a consistent look */
@@ -65,6 +110,37 @@ body {
   scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
 }
 
+/* Background Animations */
+@keyframes float {
+  0% {
+    transform: translate(0, 0) scale(1);
+  }
+
+  33% {
+    transform: translate(5vw, -5vh) scale(1.1);
+  }
+
+  66% {
+    transform: translate(-5vw, 5vh) scale(0.9);
+  }
+
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+}
+
+.animate-blob {
+  animation: float 15s infinite alternate ease-in-out;
+}
+
+.animation-delay-2000 {
+  animation-delay: 2s;
+}
+
+.animation-delay-4000 {
+  animation-delay: 4s;
+}
+
 /* FullCalendar Overrides for Dark Mode / Glass Theme */
 .fc {
   --fc-border-color: var(--calendar-border) !important;
@@ -88,6 +164,8 @@ body {
   border-color: var(--glass-border) !important;
   backdrop-filter: blur(var(--glass-blur)) !important;
   color: var(--text-primary) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2) !important;
   transition: all 0.2s ease !important;
 }
 
@@ -98,6 +176,16 @@ body {
 .fc-button-active {
   background-color: rgba(59, 130, 246, 0.2) !important;
   border-color: var(--accent-primary) !important;
+}
+
+.fc .fc-button-group {
+  display: flex;
+  gap: 0.5rem;
+  background-color: transparent !important;
+}
+
+.fc .fc-button-group>.fc-button {
+  border-radius: 12px !important;
 }
 
 .fc-event {
@@ -173,6 +261,37 @@ body {
   border-radius: 3px;
   background-color: rgba(255, 255, 255, 0.8);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+/* Detached Floating Header for FullCalendar */
+.fc .fc-toolbar.fc-header-toolbar {
+  margin-bottom: 1.5rem !important;
+}
+
+.fc .fc-toolbar-chunk {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.fc .fc-toolbar-title {
+  background-color: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  padding: 0.5rem 1rem;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+.fc .fc-view-harness {
+  background-color: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
 }
 
 /* Responsive FullCalendar Header */
