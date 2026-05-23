@@ -58,4 +58,14 @@ export interface TaskEvent {
   
   created_at: string;
   updated_at: string;
+  
+  hide_details_in_share: boolean;
+}
+
+export interface SharedSchedule {
+  id: string;
+  user_id: string;
+  created_at: string;
+  expires_at: string;
+  payload: any;
 }

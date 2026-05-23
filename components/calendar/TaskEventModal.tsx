@@ -26,6 +26,7 @@ export function TaskEventModal({ isOpen, onClose, event, onSave, onDelete, onDup
   const [actualEnd, setActualEnd] = useState('');
   const [colorCode, setColorCode] = useState('');
   const [isEmployee, setIsEmployee] = useState(false);
+  const [hideDetailsInShare, setHideDetailsInShare] = useState(false);
 
   useEffect(() => {
     if (event) {
@@ -38,6 +39,7 @@ export function TaskEventModal({ isOpen, onClose, event, onSave, onDelete, onDup
       setActualStart(event.extendedProps?.actualStart || '');
       setActualEnd(event.extendedProps?.actualEnd || '');
       setColorCode(event.extendedProps?.color_code || event.backgroundColor || '#3b82f6');
+      setHideDetailsInShare(event.extendedProps?.hide_details_in_share || false);
     }
   }, [event]);
 
@@ -104,7 +106,8 @@ export function TaskEventModal({ isOpen, onClose, event, onSave, onDelete, onDup
         scheduled_start_time: scheduledStart || null,
         scheduled_end_time: scheduledEnd || null,
         actual_start_time: actualStart || null,
-        actual_end_time: actualEnd || null
+        actual_end_time: actualEnd || null,
+        hide_details_in_share: hideDetailsInShare
       }).eq('id', event.id);
     }
 
@@ -120,7 +123,8 @@ export function TaskEventModal({ isOpen, onClose, event, onSave, onDelete, onDup
         description,
         color_code: colorCode,
         actualStart,
-        actualEnd
+        actualEnd,
+        hide_details_in_share: hideDetailsInShare
       }
     });
     onClose();
@@ -175,6 +179,20 @@ export function TaskEventModal({ isOpen, onClose, event, onSave, onDelete, onDup
                   Override position color for this task
                 </span>
               </div>
+            </div>
+
+            <div className="flex items-center gap-2 mt-2">
+              <input
+                type="checkbox"
+                id="hideDetailsInShare"
+                checked={hideDetailsInShare}
+                onChange={(e) => setHideDetailsInShare(e.target.checked)}
+                className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 bg-black/20"
+                disabled={isEmployee}
+              />
+              <label htmlFor="hideDetailsInShare" className="text-sm font-medium text-[var(--text-secondary)]">
+                Hide details in shared views (show only as Busy)
+              </label>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

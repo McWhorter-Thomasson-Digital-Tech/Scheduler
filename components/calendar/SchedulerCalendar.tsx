@@ -51,16 +51,16 @@ export function SchedulerCalendar({
 
   useEffect(() => {
     if (!containerRef.current) return;
-    
+
     // Use ResizeObserver to smoothly update FullCalendar size during CSS transitions
     const observer = new ResizeObserver(() => {
       if (calendarRef.current) {
         calendarRef.current.getApi().updateSize();
       }
     });
-    
+
     observer.observe(containerRef.current);
-    
+
     return () => observer.disconnect();
   }, []);
 

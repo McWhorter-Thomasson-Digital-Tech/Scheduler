@@ -6,8 +6,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import { SchedulerCalendar } from '@/components/calendar/SchedulerCalendar';
 import { ExternalTaskList } from '@/components/calendar/ExternalTaskList';
 import { TaskEventModal } from '@/components/calendar/TaskEventModal';
+import { ShareScheduleModal } from '@/components/calendar/ShareScheduleModal';
 import styles from '@/styles/glassmorphism.module.css';
-import { LogOut, Clock, Menu, HelpCircle } from 'lucide-react';
+import { LogOut, Clock, Menu, HelpCircle, Share2 } from 'lucide-react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 
@@ -18,6 +19,7 @@ export default function Home() {
   const [events, setEvents] = useState<any[]>([]);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<any>(null);
   const [calendarView, setCalendarView] = useState({
     start: new Date(),
@@ -79,6 +81,7 @@ export default function Home() {
           position_id: task.position_id,
           assigned_to: task.assigned_to,
           owner_organization_id: task.owner_organization_id,
+          hide_details_in_share: task.hide_details_in_share,
         }
       }));
       setEvents(formattedEvents);
@@ -254,6 +257,14 @@ export default function Home() {
               <span className="hidden md:inline text-sm font-medium">Help</span>
             </button>
             <div className="h-6 w-px bg-[var(--glass-border)] hidden md:block"></div>
+            <button
+              onClick={() => setIsShareModalOpen(true)}
+              className="px-3 md:px-4 py-2 rounded-lg bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 border border-blue-500/20 transition-colors text-sm font-medium flex items-center gap-2"
+              title="Share Schedule"
+            >
+              <Share2 className="w-4 h-4" />
+              <span className="hidden sm:inline">Share</span>
+            </button>
             <Link
               href="/timeclock"
               className="px-3 md:px-4 py-2 rounded-lg bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20 transition-colors text-sm font-medium flex items-center gap-2"
@@ -344,6 +355,13 @@ export default function Home() {
         onSave={handleModalSave}
         onDelete={handleModalDelete}
         onDuplicate={handleModalDuplicate}
+      />
+
+      <ShareScheduleModal
+        isOpen={isShareModalOpen}
+        onClose={() => setIsShareModalOpen(false)}
+        events={events}
+        user={user}
       />
     </div>
   );
