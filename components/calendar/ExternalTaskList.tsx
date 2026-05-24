@@ -3,22 +3,48 @@
 import { useEffect, useRef, useState } from 'react';
 import { Draggable } from '@fullcalendar/interaction';
 import styles from '@/styles/glassmorphism.module.css';
-import { GripVertical, Plus, Edit2, X } from 'lucide-react';
+import { GripVertical, Plus, Edit2, X, Search, Trash2, List, ChevronDown, ChevronUp } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { Position } from '@/types/database';
 import { useAuth } from '@/contexts/AuthContext';
 import { differenceInMinutes } from 'date-fns';
+import { DateRangePicker } from './DateRangePicker';
 
 interface ExternalTaskListProps {
   events?: any[];
+  filteredEvents?: any[];
   calendarView?: { start: Date; end: Date; type: string };
   onDragStart?: () => void;
+  calendarApi?: any;
+  searchTerm?: string;
+  setSearchTerm?: (term: string) => void;
+  selectedColors?: string[];
+  toggleColor?: (color: string) => void;
+  clearColors?: () => void;
+  availableColors?: string[];
+  selectedPositions?: string[];
+  togglePosition?: (positionId: string) => void;
 }
 
-export function ExternalTaskList({ events = [], calendarView, onDragStart }: ExternalTaskListProps) {
+export function ExternalTaskList({ 
+  events = [], 
+  filteredEvents,
+  calendarView, 
+  onDragStart, 
+  calendarApi,
+  searchTerm,
+  setSearchTerm,
+  selectedColors,
+  toggleColor,
+  clearColors,
+  availableColors,
+  selectedPositions,
+  togglePosition
+}: ExternalTaskListProps) {
   const { user } = useAuth();
   const containerRef = useRef<HTMLDivElement>(null);
   const [positions, setPositions] = useState<Position[]>([]);
+  const [showFindResults, setShowFindResults] = useState(false);
 
   // Form State
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -30,6 +56,23 @@ export function ExternalTaskList({ events = [], calendarView, onDragStart }: Ext
   const [monthlyGoal, setMonthlyGoal] = useState<number | ''>('');
 
   const [userOrgId, setUserOrgId] = useState<string | null>(null);
+  const [viewTitle, setViewTitle] = useState('');
+
+  // Sync viewTitle from calendarApi whenever calendarView changes (triggered by datesSet)
+  useEffect(() => {
+    if (calendarApi?.view?.title) {
+      setViewTitle(calendarApi.view.title);
+    }
+  }, [calendarApi, calendarView]);
+
+  const navCalendar = (action: 'prev' | 'next' | 'today' | string) => {
+    if (!calendarApi) return;
+    if (action === 'prev') calendarApi.prev();
+    else if (action === 'next') calendarApi.next();
+    else if (action === 'today') calendarApi.today();
+    else calendarApi.changeView(action);
+    setViewTitle(calendarApi.view?.title || '');
+  };
 
   useEffect(() => {
     const fetchPositions = async () => {
@@ -129,6 +172,18 @@ export function ExternalTaskList({ events = [], calendarView, onDragStart }: Ext
     }
   };
 
+  const handleDeletePosition = async (positionId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm('Are you sure you want to remove this shift type? Existing tasks with this type will be kept but untyped.')) {
+      return;
+    }
+    const supabase = createClient();
+    const { error } = await supabase.from('positions').delete().eq('id', positionId);
+    if (!error) {
+      setPositions(positions.filter(p => p.id !== positionId));
+    }
+  };
+
   const resetForm = () => {
     setIsFormOpen(false);
     setEditingId(null);
@@ -223,17 +278,155 @@ export function ExternalTaskList({ events = [], calendarView, onDragStart }: Ext
   };
 
   return (
-    <div className={`${styles.glassPanel} p-4 h-full flex flex-col`}>
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-xl font-semibold text-[var(--text-primary)]">Shift Types</h2>
+    <div className={`${styles.glassPanel} p-4 pb-12 min-h-full flex flex-col`}>
+      {/* Date Navigation — visible on both mobile and desktop */}
+      {calendarApi && (
+        <div className="mb-5">
+          <h2 className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-3">Navigate</h2>
+          <DateRangePicker
+            calendarApi={calendarApi}
+            calendarView={calendarView}
+            viewTitle={viewTitle}
+            onNavigate={navCalendar}
+          />
+        </div>
+      )}
+
+      {setSearchTerm && (
+        <div className="mb-5 border-t border-white/10 pt-5">
+          <h2 className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-3">Filter Calendar</h2>
+          <div className="space-y-4">
+            <div className="relative flex items-center">
+              <Search className="w-4 h-4 absolute right-3 text-[var(--text-secondary)] pointer-events-none" />
+              <input
+                type="text"
+                placeholder="Filter by title/details..."
+                value={searchTerm || ''}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className={`${styles.glassInput} text-sm pr-9 w-full`}
+              />
+            </div>
+            
+            {availableColors && availableColors.length > 0 && (
+              <div>
+                <p className="text-xs text-[var(--text-secondary)] mb-2">Filter by Color:</p>
+                <div className="flex flex-wrap gap-2">
+                  {availableColors.map(color => (
+                    <button
+                      key={color}
+                      onClick={() => toggleColor?.(color)}
+                      className={`w-6 h-6 rounded-full border-2 transition-transform ${
+                        selectedColors?.includes(color) 
+                          ? 'border-white scale-110' 
+                          : 'border-transparent hover:scale-110'
+                      }`}
+                      style={{ backgroundColor: color }}
+                      title={`Filter color ${color}`}
+                    />
+                  ))}
+                  {selectedColors && selectedColors.length > 0 && (
+                    <button
+                      onClick={clearColors}
+                      className="text-xs text-[var(--text-secondary)] hover:text-white ml-2 flex items-center"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {positions && positions.length > 0 && (
+              <div className="pt-2">
+                <p className="text-xs text-[var(--text-secondary)] mb-2">Filter by Shift Type:</p>
+                <div className="flex flex-col gap-2 max-h-32 overflow-y-auto pr-2 custom-scrollbar">
+                  {positions.map(pos => (
+                    <label key={pos.id} className="flex items-center gap-2 text-sm cursor-pointer group">
+                      <input 
+                        type="checkbox" 
+                        checked={selectedPositions?.includes(pos.id)} 
+                        onChange={() => togglePosition?.(pos.id)}
+                        className="accent-blue-500 w-4 h-4 rounded bg-white/5 border-white/10 shrink-0"
+                      />
+                      <span className="truncate group-hover:text-white transition-colors text-[var(--text-secondary)]">{pos.title}</span>
+                    </label>
+                  ))}
+                  <label className="flex items-center gap-2 text-sm cursor-pointer group">
+                    <input 
+                      type="checkbox" 
+                      checked={selectedPositions?.includes('unassigned')} 
+                      onChange={() => togglePosition?.('unassigned')}
+                      className="accent-blue-500 w-4 h-4 rounded bg-white/5 border-white/10 shrink-0"
+                    />
+                    <span className="truncate group-hover:text-white transition-colors text-[var(--text-secondary)]">Unassigned / Misc</span>
+                  </label>
+                </div>
+              </div>
+            )}
+
+            {filteredEvents && (
+              <div className="pt-2 border-t border-white/5 mt-4">
+                <button
+                  onClick={() => setShowFindResults(!showFindResults)}
+                  className="w-full text-xs font-semibold text-[var(--text-secondary)] hover:text-white flex items-center justify-between p-2 rounded hover:bg-white/5 transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <List className="w-4 h-4" />
+                    Find All Matching Tasks ({filteredEvents.length})
+                  </div>
+                  {showFindResults ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                </button>
+
+                {showFindResults && (
+                  <div className="mt-2 space-y-1 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
+                    {filteredEvents.length === 0 ? (
+                      <div className="text-xs text-[var(--text-secondary)] text-center py-2">No tasks found</div>
+                    ) : (
+                      filteredEvents.map((ev: any) => (
+                        <button
+                          key={ev.id}
+                          onClick={() => {
+                            if (calendarApi) {
+                              calendarApi.gotoDate(ev.start);
+                              calendarApi.changeView('timeGridDay');
+                              setViewTitle(calendarApi.view?.title || '');
+                              if (window.innerWidth < 768 && onDragStart) {
+                                onDragStart(); // Use onDragStart prop to close sidebar on mobile
+                              }
+                            }
+                          }}
+                          className="w-full text-left text-xs p-2 rounded hover:bg-white/10 transition-colors flex flex-col gap-1 border border-transparent hover:border-white/10"
+                        >
+                          <div className="font-medium text-white truncate flex items-center gap-2">
+                            {ev.backgroundColor && (
+                              <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: ev.backgroundColor }} />
+                            )}
+                            {ev.title}
+                          </div>
+                          <div className="text-[var(--text-secondary)] truncate">
+                            {new Date(ev.start).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                          </div>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      <div className="flex justify-between items-center mb-3 border-t border-white/10 pt-5">
+        <h2 className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Shift Types</h2>
         <button
           onClick={() => isFormOpen ? resetForm() : setIsFormOpen(true)}
           className="p-1 hover:bg-white/10 rounded-full transition-colors text-[var(--text-secondary)]"
         >
-          {isFormOpen ? <X className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
+          {isFormOpen ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
         </button>
       </div>
-      <p className="text-sm text-[var(--text-secondary)] mb-6">Drag a position onto the calendar to create a shift</p>
+      <p className="text-xs text-[var(--text-secondary)] mb-4 opacity-70">Drag onto the calendar to create a shift</p>
 
       {isFormOpen && (
         <div className={`${styles.glassCard} p-3 mb-4 space-y-3`}>
@@ -324,12 +517,22 @@ export function ExternalTaskList({ events = [], calendarView, onDragStart }: Ext
                   <GripVertical className="text-[var(--text-secondary)] w-5 h-5 mr-3 shrink-0" />
                   <div className="position-title font-medium">{position.title}</div>
                 </div>
-                <button
-                  onClick={(e) => { e.stopPropagation(); openEditForm(position); }}
-                  className="opacity-20 group-hover:opacity-100 p-1 hover:bg-white/10 rounded transition-all text-[var(--text-secondary)]"
-                >
-                  <Edit2 className="w-3.5 h-3.5" />
-                </button>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); openEditForm(position); }}
+                    className="opacity-20 group-hover:opacity-100 p-1 hover:bg-white/10 rounded transition-all text-[var(--text-secondary)]"
+                    title="Edit Shift Type"
+                  >
+                    <Edit2 className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={(e) => handleDeletePosition(position.id, e)}
+                    className="opacity-20 group-hover:opacity-100 p-1 hover:bg-white/10 rounded transition-all text-red-400 hover:text-red-300"
+                    title="Delete Shift Type"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
 
               <div className="mt-2 pl-8 flex flex-col gap-1 w-full text-xs text-[var(--text-secondary)]">

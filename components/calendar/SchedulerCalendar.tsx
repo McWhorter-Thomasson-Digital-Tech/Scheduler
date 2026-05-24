@@ -6,6 +6,7 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin, { Draggable } from '@fullcalendar/interaction';
 import styles from '@/styles/glassmorphism.module.css';
+import { Repeat } from 'lucide-react';
 
 interface SchedulerCalendarProps {
   events: any[];
@@ -15,6 +16,7 @@ interface SchedulerCalendarProps {
   onEventClick: (eventClickInfo: any) => void;
   onDatesSet?: (dateInfo: any) => void;
   isSidebarOpen?: boolean;
+  onCalendarReady?: (api: any) => void;
 }
 
 export function SchedulerCalendar({
@@ -24,7 +26,8 @@ export function SchedulerCalendar({
   onEventReceive,
   onEventClick,
   onDatesSet,
-  isSidebarOpen
+  isSidebarOpen,
+  onCalendarReady
 }: SchedulerCalendarProps) {
   const calendarRef = useRef<FullCalendar>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -44,10 +47,14 @@ export function SchedulerCalendar({
       setTimeout(() => {
         if (calendarRef.current) {
           calendarRef.current.getApi().scrollToTime(scrollTime);
+          // Notify parent that the calendar API is ready
+          if (onCalendarReady) {
+            onCalendarReady(calendarRef.current.getApi());
+          }
         }
       }, 50);
     }
-  }, [scrollTime]);
+  }, [scrollTime, onCalendarReady]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -109,22 +116,53 @@ export function SchedulerCalendar({
     document.body.classList.remove('custom-fc-dragging');
   };
 
+  const renderEventContent = (eventInfo: any) => {
+    if (eventInfo.view.type === 'dayGridMonth' && !eventInfo.event.allDay) {
+      return (
+        <div className="flex items-center gap-1 overflow-hidden truncate px-1">
+          <div 
+            className="w-1.5 h-1.5 rounded-full flex-shrink-0" 
+            style={{ backgroundColor: eventInfo.backgroundColor || eventInfo.event.backgroundColor || '#3b82f6' }}
+          />
+          <span className="text-[10px] sm:text-xs font-semibold text-[var(--text-secondary)]">{eventInfo.timeText}</span>
+          {eventInfo.event.extendedProps?.recurrence_group_id && (
+            <Repeat className="w-3 h-3 flex-shrink-0 opacity-60 text-[var(--text-secondary)]" />
+          )}
+          <span className="text-[10px] sm:text-xs truncate font-medium text-[var(--text-primary)]">{eventInfo.event.title}</span>
+        </div>
+      );
+    }
+
+    return (
+      <div className="flex flex-col w-full h-full overflow-hidden p-0.5 sm:p-1">
+        {!eventInfo.event.allDay && (
+          <div className="text-[10px] sm:text-xs font-semibold opacity-90 leading-tight truncate text-white">
+            {eventInfo.timeText}
+          </div>
+        )}
+        <div className="flex items-center gap-1 text-[11px] sm:text-sm font-medium leading-tight text-white">
+          {eventInfo.event.extendedProps?.recurrence_group_id && (
+            <Repeat className="w-3 h-3 sm:w-3.5 sm:h-3.5 flex-shrink-0 opacity-80" />
+          )}
+          <span className="truncate">{eventInfo.event.title}</span>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div ref={containerRef} className={`h-full flex flex-col`}>
       <FullCalendar
         ref={calendarRef}
         plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
         initialView="timeGridWeek"
-        headerToolbar={{
-          left: 'prev,next today',
-          center: 'title',
-          right: 'dayGridMonth,timeGridWeek,timeGridDay'
-        }}
+        headerToolbar={false}
         slotDuration="00:15:00"
         slotLabelInterval="01:00"
         editable={true}
         droppable={true}
         events={events}
+        eventContent={renderEventContent}
         eventDrop={onEventDrop}
         eventResize={onEventResize}
         eventReceive={onEventReceive}

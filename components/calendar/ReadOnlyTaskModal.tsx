@@ -30,10 +30,10 @@ export function ReadOnlyTaskModal({ isOpen, onClose, event }: ReadOnlyTaskModalP
   };
 
   return (
-    <div className="fixed w-full h-full top-0 left-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+    <div className="fixed w-full h-full top-0 left-0 z-[100] flex items-center justify-center backdrop-blur-sm p-4">
       <div className={`${styles.glassCard} w-full max-w-md flex flex-col max-h-[90vh] overflow-hidden`}>
         {/* Header */}
-        <div 
+        <div
           className="p-6 relative flex items-start justify-between border-b border-[var(--glass-border)]"
           style={{
             background: `linear-gradient(180deg, ${colorCode}22 0%, transparent 100%)`
@@ -44,8 +44,8 @@ export function ReadOnlyTaskModal({ isOpen, onClose, event }: ReadOnlyTaskModalP
             <h2 className="text-xl font-bold text-white mb-1">{title}</h2>
             {event.allDay && <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-white/10 text-white/80">All Day</span>}
           </div>
-          <button 
-            onClick={onClose} 
+          <button
+            onClick={onClose}
             className="p-1.5 hover:bg-white/10 rounded-full transition-colors flex-shrink-0 bg-black/20"
           >
             <X className="w-5 h-5" />
@@ -81,7 +81,7 @@ export function ReadOnlyTaskModal({ isOpen, onClose, event }: ReadOnlyTaskModalP
                 ) : (
                   <p className="text-sm font-medium text-[var(--text-secondary)]">Not started</p>
                 )}
-                
+
                 {actualEnd ? (
                   <p className="text-sm font-medium text-white mt-0.5">to {formatDateTime(actualEnd)}</p>
                 ) : (
@@ -109,8 +109,8 @@ export function ReadOnlyTaskModal({ isOpen, onClose, event }: ReadOnlyTaskModalP
 
         {/* Footer */}
         <div className="p-4 border-t border-[var(--glass-border)] flex justify-end">
-          <button 
-            onClick={onClose} 
+          <button
+            onClick={onClose}
             className={`${styles.glassButton} text-sm px-6`}
           >
             Close

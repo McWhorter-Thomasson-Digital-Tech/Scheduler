@@ -57,7 +57,7 @@
   border: 1px solid var(--glass-border);
   border-radius: 6px;
   color: var(--text-primary);
-  padding: 10px 14px;
+  padding: 10px 10px 14px;
   width: 100%;
   transition: border-color 0.2s ease;
   outline: none;

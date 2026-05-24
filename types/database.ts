@@ -60,6 +60,7 @@ export interface TaskEvent {
   updated_at: string;
   
   hide_details_in_share: boolean;
+  recurrence_group_id: string | null;
 }
 
 export interface SharedSchedule {

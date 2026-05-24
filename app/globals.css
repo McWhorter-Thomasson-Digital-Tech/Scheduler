@@ -264,8 +264,9 @@ body {
 }
 
 /* Detached Floating Header for FullCalendar */
+/* Navigation is handled from the sidebar — hide the FC toolbar globally */
 .fc .fc-toolbar.fc-header-toolbar {
-  margin-bottom: 1.5rem !important;
+  display: none !important;
 }
 
 .fc .fc-toolbar-chunk {
@@ -294,28 +295,24 @@ body {
   box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
 }
 
-/* Responsive FullCalendar Header */
+/* Mobile-specific overrides */
 @media (max-width: 768px) {
-  .fc .fc-toolbar.fc-header-toolbar {
-    flex-direction: column;
-    gap: 12px;
-    align-items: center;
+  /* Full-screen calendar on mobile: remove all rounding, border, shadow */
+  .fc .fc-view-harness {
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
   }
 
-  .fc .fc-toolbar-title {
-    font-size: 1rem !important;
+  /* Tighter slot labels on mobile */
+  .fc .fc-timegrid-slot-label {
+    font-size: 0.7rem !important;
+    padding: 0 2px !important;
   }
 
-  .fc .fc-toolbar-chunk {
-    display: flex;
-    justify-content: center;
-    width: 100%;
-  }
-
-  /* Make view buttons slightly smaller on mobile */
-  .fc-button-group .fc-button,
-  .fc .fc-button {
-    padding: 0.35rem 0.65rem !important;
-    font-size: 0.875rem !important;
+  /* Smaller column headers */
+  .fc .fc-col-header-cell-cushion {
+    font-size: 0.75rem !important;
+    padding: 4px 2px !important;
   }
 }

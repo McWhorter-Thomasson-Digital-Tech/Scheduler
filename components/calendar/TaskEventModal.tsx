@@ -1,18 +1,20 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { differenceInMinutes, format, parseISO } from 'date-fns';
+import { differenceInMinutes, format, addDays, addWeeks, addMonths, isBefore, differenceInDays } from 'date-fns';
 import styles from '@/styles/glassmorphism.module.css';
-import { X, Clock, User, Briefcase } from 'lucide-react';
+import { X, Clock, User, Briefcase, Repeat } from 'lucide-react';
+import { v4 as uuidv4 } from 'uuid';
 import { useAuth } from '@/contexts/AuthContext';
 import { createClient } from '@/lib/supabase/client';
+import { RecurrencePromptModal } from './RecurrencePromptModal';
 
 interface TaskEventModalProps {
   isOpen: boolean;
   onClose: () => void;
   event: any; // The FullCalendar event object or plain object
-  onSave: (updatedEvent: any) => void;
-  onDelete: (eventId: string) => void;
+  onSave: (payload: { reload?: boolean, updatedEvent?: any }) => void;
+  onDelete: (payload: { id: string, mode: 'single' | 'following' | 'all' }) => void;
   onDuplicate?: (event: any) => void;
 }
 
@@ -28,6 +30,12 @@ export function TaskEventModal({ isOpen, onClose, event, onSave, onDelete, onDup
   const [isEmployee, setIsEmployee] = useState(false);
   const [hideDetailsInShare, setHideDetailsInShare] = useState(false);
 
+  const [recurrenceType, setRecurrenceType] = useState<'none' | 'daily' | 'weekly' | 'monthly'>('none');
+  const [recurrenceEndDate, setRecurrenceEndDate] = useState<string>('');
+  const [recurrenceWarning, setRecurrenceWarning] = useState<string>('');
+  const [isPromptOpen, setIsPromptOpen] = useState(false);
+  const [pendingAction, setPendingAction] = useState<'save' | 'delete' | null>(null);
+
   useEffect(() => {
     if (event) {
       setTitle(event.title || '');
@@ -40,8 +48,32 @@ export function TaskEventModal({ isOpen, onClose, event, onSave, onDelete, onDup
       setActualEnd(event.extendedProps?.actualEnd || '');
       setColorCode(event.extendedProps?.color_code || event.backgroundColor || '#3b82f6');
       setHideDetailsInShare(event.extendedProps?.hide_details_in_share || false);
+
+      setRecurrenceType('none');
+      setRecurrenceEndDate('');
+      setIsPromptOpen(false);
+      setPendingAction(null);
     }
   }, [event]);
+
+  useEffect(() => {
+    if (recurrenceType !== 'none' && recurrenceEndDate && scheduledStart) {
+      const start = new Date(scheduledStart);
+      const end = new Date(recurrenceEndDate);
+      let diff = 0;
+      if (recurrenceType === 'daily') diff = differenceInDays(end, start);
+      if (recurrenceType === 'weekly') diff = differenceInDays(end, start) / 7;
+      if (recurrenceType === 'monthly') diff = differenceInDays(end, start) / 30;
+
+      if (diff > 100) {
+        setRecurrenceWarning('Warning: This rule will generate over 100 events, exceeding the limit. Please choose an earlier end date.');
+      } else {
+        setRecurrenceWarning('');
+      }
+    } else {
+      setRecurrenceWarning('');
+    }
+  }, [recurrenceType, recurrenceEndDate, scheduledStart]);
 
   useEffect(() => {
     const fetchRole = async () => {
@@ -94,45 +126,160 @@ export function TaskEventModal({ isOpen, onClose, event, onSave, onDelete, onDup
     }
   }
 
-  const handleSave = async () => {
-    const supabase = createClient();
+  const generateRecurrences = (baseTask: any, type: 'daily' | 'weekly' | 'monthly', endDate: Date, maxOccurrences: number = 100) => {
+    const generated = [];
+    let currentStart = new Date(baseTask.scheduled_start_time);
+    let currentEnd = new Date(baseTask.scheduled_end_time);
+    const end = endDate;
 
-    // Update the database
-    if (event.id) {
-      await supabase.from('tasks_events').update({
-        title,
-        description: description || null,
-        color_code: colorCode || null,
-        scheduled_start_time: scheduledStart || null,
-        scheduled_end_time: scheduledEnd || null,
-        actual_start_time: actualStart || null,
-        actual_end_time: actualEnd || null,
-        hide_details_in_share: hideDetailsInShare
-      }).eq('id', event.id);
+    for (let i = 1; i < maxOccurrences; i++) {
+      if (type === 'daily') {
+        currentStart = addDays(currentStart, 1);
+        currentEnd = addDays(currentEnd, 1);
+      } else if (type === 'weekly') {
+        currentStart = addWeeks(currentStart, 1);
+        currentEnd = addWeeks(currentEnd, 1);
+      } else if (type === 'monthly') {
+        currentStart = addMonths(currentStart, 1);
+        currentEnd = addMonths(currentEnd, 1);
+      }
+
+      if (isBefore(end, currentStart)) {
+        break;
+      }
+
+      generated.push({
+        ...baseTask,
+        scheduled_start_time: currentStart.toISOString(),
+        scheduled_end_time: currentEnd.toISOString()
+      });
+    }
+    return generated;
+  };
+
+  const handleSave = () => {
+    if (recurrenceWarning) return;
+    const isExisting = !!event.id;
+    const hasRecurrenceGroup = !!event.extendedProps?.recurrence_group_id;
+
+    if (isExisting && hasRecurrenceGroup) {
+      setPendingAction('save');
+      setIsPromptOpen(true);
+    } else {
+      executeSave('single');
+    }
+  };
+
+  const executeSave = async (mode: 'single' | 'following' | 'all') => {
+    const supabase = createClient();
+    const isExisting = !!event.id;
+    const hasRecurrenceGroup = !!event.extendedProps?.recurrence_group_id;
+
+    const baseEventData = {
+      title,
+      description: description || null,
+      color_code: colorCode || null,
+      scheduled_start_time: scheduledStart || null,
+      scheduled_end_time: scheduledEnd || null,
+      actual_start_time: actualStart || null,
+      actual_end_time: actualEnd || null,
+      hide_details_in_share: hideDetailsInShare
+    };
+
+    if (isExisting) {
+      if (hasRecurrenceGroup) {
+        if (mode === 'single') {
+          await supabase.from('tasks_events').update({ ...baseEventData, recurrence_group_id: null }).eq('id', event.id);
+        } else {
+          // following or all
+          let query = supabase.from('tasks_events')
+            .select('*')
+            .eq('recurrence_group_id', event.extendedProps.recurrence_group_id);
+
+          if (mode === 'following') {
+            query = query.gte('scheduled_start_time', event.startStr || event.start.toISOString());
+          }
+
+          const { data: targetEvents } = await query;
+
+          const oldStart = new Date(event.start).getTime();
+          const newStart = new Date(scheduledStart).getTime();
+          const startDelta = newStart - oldStart;
+
+          const oldEnd = new Date(event.end || event.start).getTime();
+          const newEnd = new Date(scheduledEnd).getTime();
+          const endDelta = newEnd - oldEnd;
+
+          const updates = targetEvents?.map(ev => ({
+            ...ev,
+            title,
+            description: description || null,
+            color_code: colorCode || null,
+            hide_details_in_share: hideDetailsInShare,
+            scheduled_start_time: new Date(new Date(ev.scheduled_start_time).getTime() + startDelta).toISOString(),
+            scheduled_end_time: new Date(new Date(ev.scheduled_end_time).getTime() + endDelta).toISOString(),
+          })) || [];
+
+          if (updates.length > 0) {
+            await supabase.from('tasks_events').upsert(updates);
+          }
+        }
+      } else {
+        if (recurrenceType !== 'none' && recurrenceEndDate) {
+          const groupId = uuidv4();
+          await supabase.from('tasks_events').update({ ...baseEventData, recurrence_group_id: groupId }).eq('id', event.id);
+
+          const baseTaskForGeneration = {
+            ...baseEventData,
+            position_id: event.extendedProps?.position_id || null,
+            owner_user_id: user?.id,
+            owner_organization_id: event.extendedProps?.owner_organization_id || null,
+            assigned_to: event.extendedProps?.assigned_to || null,
+            is_all_day: event.allDay || false,
+            recurrence_group_id: groupId
+          };
+
+          const newEvents = generateRecurrences(baseTaskForGeneration, recurrenceType, new Date(recurrenceEndDate));
+          if (newEvents.length > 0) {
+            await supabase.from('tasks_events').insert(newEvents);
+          }
+        } else {
+          await supabase.from('tasks_events').update(baseEventData).eq('id', event.id);
+        }
+      }
     }
 
-    onSave({
-      ...event,
-      title,
-      start: scheduledStart,
-      end: scheduledEnd,
-      backgroundColor: colorCode,
-      borderColor: colorCode,
-      extendedProps: {
-        ...event.extendedProps,
-        description,
-        color_code: colorCode,
-        actualStart,
-        actualEnd,
-        hide_details_in_share: hideDetailsInShare
-      }
-    });
+    onSave({ reload: true });
     onClose();
+  };
+
+  const handleDeleteClick = () => {
+    if (event.extendedProps?.recurrence_group_id) {
+      setPendingAction('delete');
+      setIsPromptOpen(true);
+    } else {
+      executeDelete('single');
+    }
+  };
+
+  const executeDelete = (mode: 'single' | 'following' | 'all') => {
+    onDelete({ id: event.id, mode });
+    onClose();
+  };
+
+  const handlePromptConfirm = (mode: 'single' | 'following' | 'all') => {
+    setIsPromptOpen(false);
+    if (pendingAction === 'save') {
+      executeSave(mode);
+    } else if (pendingAction === 'delete') {
+      executeDelete(mode);
+    }
+    setPendingAction(null);
   };
 
   return (
     <div className="fixed w-full h-full top-0 left-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-      <div className={`${styles.glassCard} w-full max-w-lg mx-2 sm:mx-4 flex flex-col max-h-[90vh]`}>
+      <div className={`${styles.glassCard} w-full max-w-lg mx-2 sm:mx-4 flex flex-col max-h-[90vh] `}>
         <div className="flex justify-between items-center p-4 border-b border-[var(--glass-border)]">
           <h2 className="text-xl font-semibold">{event.id ? 'Edit Task' : 'New Task'}</h2>
           <button onClick={onClose} className="p-1 hover:bg-white/10 rounded-full transition-colors">
@@ -249,6 +396,57 @@ export function TaskEventModal({ isOpen, onClose, event, onSave, onDelete, onDup
             </div>
           </div>
 
+          {/* Recurrence Section */}
+          {!event.extendedProps?.recurrence_group_id && (
+            <div className="pt-4 border-t border-[var(--glass-border)]">
+              <h3 className="text-sm font-semibold mb-3 flex items-center gap-2 text-[var(--accent-primary)]">
+                <Repeat className="w-4 h-4" /> Recurrence
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1 text-[var(--text-secondary)]">Repeat</label>
+                  <select
+                    value={recurrenceType}
+                    onChange={(e) => setRecurrenceType(e.target.value as any)}
+                    className={`${styles.glassInput} text-sm cursor-pointer`}
+                    disabled={isEmployee}
+                  >
+                    <option value="none">Does not repeat</option>
+                    <option value="daily">Daily</option>
+                    <option value="weekly">Weekly</option>
+                    <option value="monthly">Monthly</option>
+                  </select>
+                </div>
+                {recurrenceType !== 'none' && (
+                  <div>
+                    <label className="block text-sm font-medium mb-1 text-[var(--text-secondary)]">Ends On</label>
+                    <input
+                      type="date"
+                      value={recurrenceEndDate}
+                      onChange={(e) => setRecurrenceEndDate(e.target.value)}
+                      className={`${styles.glassInput} text-sm`}
+                      disabled={isEmployee}
+                    />
+                  </div>
+                )}
+              </div>
+              {recurrenceWarning && (
+                <div className="mt-2 text-xs text-red-400 font-medium bg-red-400/10 p-2 rounded">
+                  {recurrenceWarning}
+                </div>
+              )}
+            </div>
+          )}
+          {event.extendedProps?.recurrence_group_id && (
+            <div className="pt-4 border-t border-[var(--glass-border)]">
+              <div className="flex items-center gap-2 text-blue-400 bg-blue-400/10 p-3 rounded-lg border border-blue-400/20">
+                <Repeat className="w-5 h-5 flex-shrink-0" />
+                <span className="text-sm font-medium">This event is part of a recurring series. Edits and deletions will prompt you for how to apply them.</span>
+              </div>
+            </div>
+          )}
+
+
           {/* Time Tracking Section */}
           <div className="pt-4 border-t border-[var(--glass-border)]">
             <h3 className="text-sm font-semibold mb-3 uppercase tracking-wider text-[var(--accent-primary)]">Time Tracking</h3>
@@ -288,7 +486,7 @@ export function TaskEventModal({ isOpen, onClose, event, onSave, onDelete, onDup
           <div className="flex gap-2">
             {event.id && !isEmployee && (
               <button
-                onClick={() => { onDelete(event.id); onClose(); }}
+                onClick={handleDeleteClick}
                 className="text-red-400 hover:text-red-300 text-sm font-medium px-4 py-2"
               >
                 Delete
@@ -314,6 +512,16 @@ export function TaskEventModal({ isOpen, onClose, event, onSave, onDelete, onDup
           </div>
         </div>
       </div>
+
+      <RecurrencePromptModal
+        isOpen={isPromptOpen}
+        onClose={() => {
+          setIsPromptOpen(false);
+          setPendingAction(null);
+        }}
+        onConfirm={handlePromptConfirm}
+        action={pendingAction || 'update'}
+      />
     </div>
   );
 }
