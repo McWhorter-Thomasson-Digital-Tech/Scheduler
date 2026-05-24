@@ -520,7 +520,7 @@ export function TaskEventModal({ isOpen, onClose, event, onSave, onDelete, onDup
           setPendingAction(null);
         }}
         onConfirm={handlePromptConfirm}
-        action={pendingAction || 'update'}
+        action={pendingAction === 'delete' ? 'delete' : 'update'}
       />
     </div>
   );
