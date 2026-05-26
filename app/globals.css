@@ -297,6 +297,7 @@ body {
 
 /* Mobile-specific overrides */
 @media (max-width: 768px) {
+
   /* Full-screen calendar on mobile: remove all rounding, border, shadow */
   .fc .fc-view-harness {
     border-radius: 0 !important;
@@ -314,5 +315,41 @@ body {
   .fc .fc-col-header-cell-cushion {
     font-size: 0.75rem !important;
     padding: 4px 2px !important;
+  }
+}
+
+/* All-Day Slot Styling */
+.fc .fc-daygrid-body-unbalanced .fc-daygrid-day-events {
+  min-height: 1.5em !important;
+}
+
+.fc .fc-timegrid .fc-daygrid-body {
+  background-color: rgba(30, 30, 30, 0.3) !important;
+  border-bottom: 1px solid var(--calendar-border) !important;
+}
+
+.fc .fc-timegrid-axis-cushion {
+  font-size: 0.7rem !important;
+  color: var(--text-secondary) !important;
+}
+
+/* Drag and drop visual feedback */
+.drag-indicator {
+  pointer-events: none;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #8b5cf6, transparent);
+  border-radius: 1px;
+  animation: pulse-glow 1.5s infinite;
+}
+
+@keyframes pulse-glow {
+
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+
+  50% {
+    opacity: 1;
   }
 }

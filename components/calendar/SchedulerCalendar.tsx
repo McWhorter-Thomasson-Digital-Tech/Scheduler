@@ -172,7 +172,7 @@ export function SchedulerCalendar({
         eventDragStop={handleDragStop}
         height="100%"
         scrollTime={scrollTime}
-        allDaySlot={false}
+        allDaySlot={true}
         nowIndicator={true}
         eventClassNames="cursor-pointer"
         eventLongPressDelay={100}

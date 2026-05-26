@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useScrollLock } from '@/hooks/useScrollLock';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { SchedulerCalendar } from '@/components/calendar/SchedulerCalendar';
@@ -9,9 +10,10 @@ import { TaskEventModal } from '@/components/calendar/TaskEventModal';
 import { ShareScheduleModal } from '@/components/calendar/ShareScheduleModal';
 import { RecurrencePromptModal } from '@/components/calendar/RecurrencePromptModal';
 import styles from '@/styles/glassmorphism.module.css';
-import { LogOut, Clock, Menu, HelpCircle, Share2 } from 'lucide-react';
+import { LogOut, Clock, Menu, HelpCircle, Share2, ListTodo, X } from 'lucide-react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
+import { format } from 'date-fns';
 
 export default function Home() {
   const { user, loading, logout } = useAuth();
@@ -31,6 +33,8 @@ export default function Home() {
   });
   const [showHelp, setShowHelp] = useState(false);
   const [calendarApi, setCalendarApi] = useState<any>(null);
+
+  const helpBackdropRef = useScrollLock(showHelp);
 
   // Filter State
   const [searchTerm, setSearchTerm] = useState('');
@@ -104,6 +108,10 @@ export default function Home() {
           owner_organization_id: task.owner_organization_id,
           hide_details_in_share: task.hide_details_in_share,
           recurrence_group_id: task.recurrence_group_id,
+          show_on_calendar: task.show_on_calendar,
+          show_on_task_list: task.show_on_task_list,
+          is_completed: task.is_completed,
+          task_list_orders: task.task_list_orders,
         }
       }));
       setEvents(formattedEvents);
@@ -135,6 +143,11 @@ export default function Home() {
       return matchesSearch && matchesColor && matchesPosition;
     });
   }, [events, searchTerm, selectedColors, selectedPositions]);
+
+  // For the calendar, additionally filter out tasks the user hid
+  const calendarEvents = useMemo(() => {
+    return filteredEvents.filter(ev => ev.extendedProps?.show_on_calendar !== false);
+  }, [filteredEvents]);
 
   const toggleColor = (color: string) => {
     setSelectedColors(prev =>
@@ -183,7 +196,10 @@ export default function Home() {
           actualStart: null,
           actualEnd: null,
           position_id: data.position_id,
-          recurrence_group_id: null
+          recurrence_group_id: null,
+          show_on_calendar: data.show_on_calendar,
+          show_on_task_list: data.show_on_task_list,
+          task_list_orders: data.task_list_orders,
         }
       };
       setEvents([...events, newEvent]);
@@ -194,25 +210,54 @@ export default function Home() {
   const handleEventDrop = async (info: any) => {
     const eventObj = events.find(ev => ev.id === info.event.id) || info.event;
     if (eventObj.extendedProps?.recurrence_group_id) {
-       info.revert();
-       setPendingDragAction({ type: 'drop', info });
-       setIsRecurrencePromptOpen(true);
-       return;
+      info.revert();
+      setPendingDragAction({ type: 'drop', info });
+      setIsRecurrencePromptOpen(true);
+      return;
     }
 
     const supabase = createClient();
     const startIso = info.event.start.toISOString();
     const endIso = info.event.end ? info.event.end.toISOString() : startIso;
 
+    // Calculate day shift offset to update task list orders
+    const oldStart = new Date(eventObj.start);
+    const newStart = new Date(info.event.start);
+    oldStart.setHours(0, 0, 0, 0);
+    newStart.setHours(0, 0, 0, 0);
+    const dayOffset = Math.round((newStart.getTime() - oldStart.getTime()) / (1000 * 60 * 60 * 24));
+
+    let newTaskListOrders = { ...(eventObj.extendedProps?.task_list_orders || {}) };
+    if (dayOffset !== 0) {
+      const oldOrders = eventObj.extendedProps?.task_list_orders || {};
+      newTaskListOrders = {};
+      Object.keys(oldOrders).forEach(oldDateStr => {
+        const d = new Date(oldDateStr + 'T00:00:00');
+        d.setDate(d.getDate() + dayOffset);
+        const newDateStr = format(d, 'yyyy-MM-dd');
+        newTaskListOrders[newDateStr] = oldOrders[oldDateStr];
+      });
+    }
+
     await supabase.from('tasks_events').update({
       scheduled_start_time: startIso,
       scheduled_end_time: endIso,
-      is_all_day: info.event.allDay
+      is_all_day: info.event.allDay,
+      task_list_orders: newTaskListOrders
     }).eq('id', info.event.id);
 
     setEvents(events.map(ev =>
       ev.id === info.event.id
-        ? { ...ev, start: startIso, end: endIso, allDay: info.event.allDay }
+        ? {
+          ...ev,
+          start: startIso,
+          end: endIso,
+          allDay: info.event.allDay,
+          extendedProps: {
+            ...ev.extendedProps,
+            task_list_orders: newTaskListOrders
+          }
+        }
         : ev
     ));
   };
@@ -220,10 +265,10 @@ export default function Home() {
   const handleEventResize = async (info: any) => {
     const eventObj = events.find(ev => ev.id === info.event.id) || info.event;
     if (eventObj.extendedProps?.recurrence_group_id) {
-       info.revert();
-       setPendingDragAction({ type: 'resize', info });
-       setIsRecurrencePromptOpen(true);
-       return;
+      info.revert();
+      setPendingDragAction({ type: 'resize', info });
+      setIsRecurrencePromptOpen(true);
+      return;
     }
 
     const supabase = createClient();
@@ -243,56 +288,56 @@ export default function Home() {
     ));
   };
 
-  const handleRecurrencePromptConfirm = async (mode: 'single'|'following'|'all') => {
+  const handleRecurrencePromptConfirm = async (mode: 'single' | 'following' | 'all') => {
     setIsRecurrencePromptOpen(false);
     if (!pendingDragAction) return;
-    
+
     const { type, info } = pendingDragAction;
     const supabase = createClient();
-    
+
     const startIso = info.event.start.toISOString();
     const endIso = info.event.end ? info.event.end.toISOString() : startIso;
     const eventId = info.event.id;
     const eventObj = events.find(ev => ev.id === eventId);
-    
+
     if (mode === 'single') {
-       await supabase.from('tasks_events').update({
-         scheduled_start_time: startIso,
-         scheduled_end_time: endIso,
-         is_all_day: info.event.allDay,
-         recurrence_group_id: null
-       }).eq('id', eventId);
+      await supabase.from('tasks_events').update({
+        scheduled_start_time: startIso,
+        scheduled_end_time: endIso,
+        is_all_day: info.event.allDay,
+        recurrence_group_id: null
+      }).eq('id', eventId);
     } else {
-       let query = supabase.from('tasks_events')
-         .select('*')
-         .eq('recurrence_group_id', eventObj.extendedProps.recurrence_group_id);
-       
-       if (mode === 'following') {
-         query = query.gte('scheduled_start_time', eventObj.start);
-       }
-       
-       const { data: targetEvents } = await query;
-       
-       const oldStart = new Date(eventObj.start).getTime();
-       const newStart = new Date(startIso).getTime();
-       const startDelta = newStart - oldStart;
-       
-       const oldEnd = new Date(eventObj.end || eventObj.start).getTime();
-       const newEnd = new Date(endIso).getTime();
-       const endDelta = newEnd - oldEnd;
+      let query = supabase.from('tasks_events')
+        .select('*')
+        .eq('recurrence_group_id', eventObj.extendedProps.recurrence_group_id);
 
-       const updates = targetEvents?.map(ev => ({
-          ...ev,
-          scheduled_start_time: new Date(new Date(ev.scheduled_start_time).getTime() + startDelta).toISOString(),
-          scheduled_end_time: new Date(new Date(ev.scheduled_end_time).getTime() + endDelta).toISOString(),
-          is_all_day: info.event.allDay
-       })) || [];
+      if (mode === 'following') {
+        query = query.gte('scheduled_start_time', eventObj.start);
+      }
 
-       if (updates.length > 0) {
-          await supabase.from('tasks_events').upsert(updates);
-       }
+      const { data: targetEvents } = await query;
+
+      const oldStart = new Date(eventObj.start).getTime();
+      const newStart = new Date(startIso).getTime();
+      const startDelta = newStart - oldStart;
+
+      const oldEnd = new Date(eventObj.end || eventObj.start).getTime();
+      const newEnd = new Date(endIso).getTime();
+      const endDelta = newEnd - oldEnd;
+
+      const updates = targetEvents?.map(ev => ({
+        ...ev,
+        scheduled_start_time: new Date(new Date(ev.scheduled_start_time).getTime() + startDelta).toISOString(),
+        scheduled_end_time: new Date(new Date(ev.scheduled_end_time).getTime() + endDelta).toISOString(),
+        is_all_day: info.event.allDay
+      })) || [];
+
+      if (updates.length > 0) {
+        await supabase.from('tasks_events').upsert(updates);
+      }
     }
-    
+
     setPendingDragAction(null);
     fetchEvents();
   };
@@ -314,31 +359,31 @@ export default function Home() {
   // Modal Handlers
   const handleModalSave = (payload: { reload?: boolean, updatedEvent?: any }) => {
     if (payload.updatedEvent) {
-       setEvents(events.map(ev => ev.id === payload.updatedEvent.id ? payload.updatedEvent : ev));
+      setEvents(events.map(ev => ev.id === payload.updatedEvent.id ? payload.updatedEvent : ev));
     }
     if (payload.reload) {
-       fetchEvents();
+      fetchEvents();
     }
   };
 
-  const handleModalDelete = async (payload: { id: string, mode: 'single'|'following'|'all' }) => {
+  const handleModalDelete = async (payload: { id: string, mode: 'single' | 'following' | 'all' }) => {
     const supabase = createClient();
     if (payload.mode === 'single') {
-       await supabase.from('tasks_events').delete().eq('id', payload.id);
+      await supabase.from('tasks_events').delete().eq('id', payload.id);
     } else {
-       const targetEvent = events.find(ev => ev.id === payload.id);
-       if (targetEvent?.extendedProps?.recurrence_group_id) {
-          if (payload.mode === 'all') {
-             await supabase.from('tasks_events').delete().eq('recurrence_group_id', targetEvent.extendedProps.recurrence_group_id);
-          } else if (payload.mode === 'following') {
-             await supabase.from('tasks_events')
-               .delete()
-               .eq('recurrence_group_id', targetEvent.extendedProps.recurrence_group_id)
-               .gte('scheduled_start_time', targetEvent.start);
-          }
-       } else {
-          await supabase.from('tasks_events').delete().eq('id', payload.id);
-       }
+      const targetEvent = events.find(ev => ev.id === payload.id);
+      if (targetEvent?.extendedProps?.recurrence_group_id) {
+        if (payload.mode === 'all') {
+          await supabase.from('tasks_events').delete().eq('recurrence_group_id', targetEvent.extendedProps.recurrence_group_id);
+        } else if (payload.mode === 'following') {
+          await supabase.from('tasks_events')
+            .delete()
+            .eq('recurrence_group_id', targetEvent.extendedProps.recurrence_group_id)
+            .gte('scheduled_start_time', targetEvent.start);
+        }
+      } else {
+        await supabase.from('tasks_events').delete().eq('id', payload.id);
+      }
     }
     fetchEvents();
   };
@@ -357,6 +402,9 @@ export default function Home() {
       owner_user_id: user?.id,
       assigned_to: eventToDuplicate.extendedProps?.assigned_to || null,
       owner_organization_id: eventToDuplicate.extendedProps?.owner_organization_id || null,
+      show_on_calendar: eventToDuplicate.extendedProps?.show_on_calendar !== false,
+      show_on_task_list: eventToDuplicate.extendedProps?.show_on_task_list !== false,
+      task_list_orders: eventToDuplicate.extendedProps?.task_list_orders || {},
     };
 
     const { data, error } = await supabase.from('tasks_events').insert([newTask]).select().single();
@@ -373,7 +421,10 @@ export default function Home() {
           ...eventToDuplicate.extendedProps,
           actualStart: null,
           actualEnd: null,
-          position_id: data.position_id
+          position_id: data.position_id,
+          show_on_calendar: data.show_on_calendar,
+          show_on_task_list: data.show_on_task_list,
+          task_list_orders: data.task_list_orders,
         }
       };
       setEvents([...events, newEvent]);
@@ -393,21 +444,12 @@ export default function Home() {
             >
               <Menu className="w-6 h-6" />
             </button>
-            <img src="/logo.png" alt="ChronoDo Logo" className="w-8 h-8 rounded-xl hidden sm:block shadow-lg shadow-blue-500/20" />
-            <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-400">
+            <img src="/ChronoDo%20Logo%20Clear.png" alt="ChronoDo Logo" className="w-8 h-8 object-contain drop-shadow-[0_2px_8px_rgba(59,130,246,0.15)]" />
+            <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-400 hidden sm:block">
               ChronoDo
             </h1>
           </div>
-          <div className="flex items-center gap-3 md:gap-6">
-            <button
-              onClick={() => setShowHelp(!showHelp)}
-              className="p-2 text-[var(--text-secondary)] hover:text-white transition-colors flex items-center gap-2"
-              title="Help"
-            >
-              <HelpCircle className="w-5 h-5" />
-              <span className="hidden md:inline text-sm font-medium">Help</span>
-            </button>
-            <div className="h-6 w-px bg-[var(--glass-border)] hidden md:block"></div>
+          <div className="flex items-center gap-2 md:gap-6">
             <button
               onClick={() => setIsShareModalOpen(true)}
               className="px-3 md:px-4 py-2 rounded-lg bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 border border-blue-500/20 transition-colors text-sm font-medium flex items-center gap-2"
@@ -417,6 +459,13 @@ export default function Home() {
               <span className="hidden sm:inline">Share</span>
             </button>
             <Link
+              href="/tasks"
+              className="px-3 md:px-4 py-2 rounded-lg bg-purple-500/10 text-purple-400 hover:bg-purple-500/20 border border-purple-500/20 transition-colors text-sm font-medium flex items-center gap-2"
+            >
+              <ListTodo className="w-4 h-4" />
+              <span className="hidden sm:inline">Task List</span>
+            </Link>
+            <Link
               href="/timeclock"
               className="px-3 md:px-4 py-2 rounded-lg bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20 transition-colors text-sm font-medium flex items-center gap-2"
             >
@@ -424,6 +473,14 @@ export default function Home() {
               <span className="hidden sm:inline">Time Clock</span>
             </Link>
             <div className="h-6 w-px bg-[var(--glass-border)]"></div>
+            <button
+              onClick={() => setShowHelp(true)}
+              className="p-2 text-[var(--text-secondary)] hover:text-white transition-colors flex items-center gap-2"
+              title="Help"
+            >
+              <HelpCircle className="w-5 h-5" />
+              <span className="hidden md:inline text-sm font-medium">Help</span>
+            </button>
             <div className="text-sm hidden md:block">
               <span className="text-[var(--text-secondary)]">Logged in as </span>
               <span className="font-semibold">{user.full_name || 'User'}</span>
@@ -492,23 +549,9 @@ export default function Home() {
 
         {/* Calendar View */}
         <main className="flex-1 flex flex-col px-0 md:px-4 pb-0 min-w-0 min-h-0">
-          {/* Help Dropdown Section */}
-          <div className={`shrink-0 overflow-hidden transition-all duration-300 ease-in-out ${showHelp ? 'max-h-96 opacity-100 mb-4' : 'max-h-0 opacity-0 mb-0'}`}>
-            <div className={`${styles.glassCard} p-6 relative`}>
-              <h3 className="text-lg font-semibold mb-3 text-white flex items-center gap-2">
-                <HelpCircle className="w-5 h-5 text-blue-400" />
-                How to Use the Scheduler
-              </h3>
-              <ul className="list-disc list-inside text-[var(--text-secondary)] space-y-2 text-sm max-w-3xl">
-                <li><strong>Create Tasks:</strong> Drag task roles from the left sidebar onto the calendar to create a new task.</li>
-                <li><strong>Edit Tasks:</strong> Click on any task on the calendar to change its title, time, or description.</li>
-                <li><strong>Move Tasks:</strong> Drag and drop existing tasks to different days, or use the bottom handle to resize the duration.</li>
-                <li><strong>Manage Roles:</strong> Add new positions or custom task types in the sidebar to organize your workflow.</li>
-              </ul>
-            </div>
-          </div>
+
           <SchedulerCalendar
-            events={filteredEvents}
+            events={calendarEvents}
             onEventReceive={handleEventReceive}
             onEventDrop={handleEventDrop}
             onEventResize={handleEventResize}
@@ -539,12 +582,44 @@ export default function Home() {
       <RecurrencePromptModal
         isOpen={isRecurrencePromptOpen}
         onClose={() => {
-           setIsRecurrencePromptOpen(false);
-           setPendingDragAction(null);
+          setIsRecurrencePromptOpen(false);
+          setPendingDragAction(null);
         }}
         onConfirm={handleRecurrencePromptConfirm}
         action={pendingDragAction?.type === 'drop' ? 'move' : 'update' as any}
       />
+
+      {/* Help Modal */}
+      {showHelp && (
+        <div ref={helpBackdropRef} className="fixed inset-0 z-[100] flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className={`${styles.glassCard} w-full max-w-md p-6 relative !bg-neutral-950/75`} style={{ transform: 'none' }}>
+            <button
+              onClick={() => setShowHelp(false)}
+              className="absolute top-4 right-4 p-2 text-white/50 hover:text-white transition-colors rounded-full hover:bg-white/10"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <h2 className="text-xl font-bold mb-4 text-white flex items-center gap-2">
+              <HelpCircle className="w-5 h-5 text-blue-400" />
+              How to Use the Scheduler
+            </h2>
+            <ul className="list-disc list-inside text-[var(--text-secondary)] space-y-2 text-sm">
+              <li><strong className="text-white">Create Tasks:</strong> Drag task roles from the left sidebar onto the calendar to create a new task.</li>
+              <li><strong className="text-white">Edit Tasks:</strong> Click on any task on the calendar to change its title, time, or description.</li>
+              <li><strong className="text-white">Move Tasks:</strong> Drag and drop existing tasks to different days, or use the bottom handle to resize the duration.</li>
+              <li><strong className="text-white">Manage Roles:</strong> Add new positions or custom task types in the sidebar to organize your workflow.</li>
+            </ul>
+            <div className="mt-6 flex justify-end">
+              <button
+                onClick={() => setShowHelp(false)}
+                className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors text-sm font-medium"
+              >
+                Got it
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

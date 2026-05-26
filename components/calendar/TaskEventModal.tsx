@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useScrollLock } from '@/hooks/useScrollLock';
 import { differenceInMinutes, format, addDays, addWeeks, addMonths, isBefore, differenceInDays } from 'date-fns';
 import styles from '@/styles/glassmorphism.module.css';
 import { X, Clock, User, Briefcase, Repeat } from 'lucide-react';
@@ -29,6 +30,9 @@ export function TaskEventModal({ isOpen, onClose, event, onSave, onDelete, onDup
   const [colorCode, setColorCode] = useState('');
   const [isEmployee, setIsEmployee] = useState(false);
   const [hideDetailsInShare, setHideDetailsInShare] = useState(false);
+  const [isAllDay, setIsAllDay] = useState(false);
+  const [showOnCalendar, setShowOnCalendar] = useState(true);
+  const [showOnTaskList, setShowOnTaskList] = useState(true);
 
   const [recurrenceType, setRecurrenceType] = useState<'none' | 'daily' | 'weekly' | 'monthly'>('none');
   const [recurrenceEndDate, setRecurrenceEndDate] = useState<string>('');
@@ -41,13 +45,29 @@ export function TaskEventModal({ isOpen, onClose, event, onSave, onDelete, onDup
       setTitle(event.title || '');
       setDescription(event.extendedProps?.description || '');
       const sStart = event.startStr || (event.start instanceof Date ? event.start.toISOString() : event.start);
-      const sEnd = event.endStr || (event.end instanceof Date ? event.end.toISOString() : event.end);
+      let sEnd = event.endStr || (event.end instanceof Date ? event.end.toISOString() : event.end);
+
+      const eventIsAllDay = event.allDay || false;
+      setIsAllDay(eventIsAllDay);
+
+      if (eventIsAllDay && sEnd) {
+        // Since event.end from FullCalendar is exclusive (midnight of the next day),
+        // we subtract 1 day to get the inclusive end date for the UI state.
+        const endD = new Date(sEnd);
+        const inclusiveEndD = addDays(endD, -1);
+        sEnd = inclusiveEndD.toISOString();
+      } else if (eventIsAllDay && !sEnd && sStart) {
+        sEnd = sStart;
+      }
+
       setScheduledStart(sStart || '');
       setScheduledEnd(sEnd || '');
       setActualStart(event.extendedProps?.actualStart || '');
       setActualEnd(event.extendedProps?.actualEnd || '');
       setColorCode(event.extendedProps?.color_code || event.backgroundColor || '#3b82f6');
       setHideDetailsInShare(event.extendedProps?.hide_details_in_share || false);
+      setShowOnCalendar(event.extendedProps?.show_on_calendar !== false);
+      setShowOnTaskList(event.extendedProps?.show_on_task_list !== false);
 
       setRecurrenceType('none');
       setRecurrenceEndDate('');
@@ -102,6 +122,8 @@ export function TaskEventModal({ isOpen, onClose, event, onSave, onDelete, onDup
       fetchRole();
     }
   }, [event, user, isOpen]);
+
+  const backdropRef = useScrollLock(isOpen);
 
   if (!isOpen || !event) return null;
 
@@ -175,15 +197,64 @@ export function TaskEventModal({ isOpen, onClose, event, onSave, onDelete, onDup
     const isExisting = !!event.id;
     const hasRecurrenceGroup = !!event.extendedProps?.recurrence_group_id;
 
+    let newTaskListOrders = event.extendedProps?.task_list_orders || {};
+    const originalStart = event.start instanceof Date ? event.start : (event.start ? new Date(event.start) : null);
+    if (originalStart && scheduledStart) {
+      const oldStartIso = originalStart.toISOString().split('T')[0];
+      const newStartIso = scheduledStart.split('T')[0];
+
+      const [oy, om, od] = oldStartIso.split('-');
+      const [ny, nm, nd] = newStartIso.split('-');
+
+      const oldStartD = new Date(Number(oy), Number(om) - 1, Number(od), 0, 0, 0, 0);
+      const newStartD = new Date(Number(ny), Number(nm) - 1, Number(nd), 0, 0, 0, 0);
+
+      const dayOffset = Math.round((newStartD.getTime() - oldStartD.getTime()) / (1000 * 60 * 60 * 24));
+      if (dayOffset !== 0) {
+        const oldOrders = event.extendedProps?.task_list_orders || {};
+        newTaskListOrders = {};
+        Object.keys(oldOrders).forEach(oldDateStr => {
+          const d = new Date(oldDateStr + 'T00:00:00');
+          d.setDate(d.getDate() + dayOffset);
+          const newDateStr = format(d, 'yyyy-MM-dd');
+          newTaskListOrders[newDateStr] = oldOrders[oldDateStr];
+        });
+      }
+    }
+
+    let startIso = '';
+    let endIso = '';
+
+    if (isAllDay) {
+      const [sy, sm, sd] = (scheduledStart.includes('T') ? scheduledStart.split('T')[0] : scheduledStart).split('-');
+      const startD = new Date(Number(sy), Number(sm) - 1, Number(sd), 0, 0, 0, 0);
+
+      const [ey, em, ed] = (scheduledEnd.includes('T') ? scheduledEnd.split('T')[0] : scheduledEnd).split('-');
+      const endD = new Date(Number(ey), Number(em) - 1, Number(ed), 0, 0, 0, 0);
+
+      // Add 1 day to the inclusive end date chosen in UI to save as exclusive in DB/FC
+      const exclusiveEndD = addDays(endD, 1);
+
+      startIso = startD.toISOString();
+      endIso = exclusiveEndD.toISOString();
+    } else {
+      startIso = scheduledStart ? new Date(scheduledStart).toISOString() : '';
+      endIso = scheduledEnd ? new Date(scheduledEnd).toISOString() : '';
+    }
+
     const baseEventData = {
       title,
       description: description || null,
       color_code: colorCode || null,
-      scheduled_start_time: scheduledStart || null,
-      scheduled_end_time: scheduledEnd || null,
+      scheduled_start_time: startIso || null,
+      scheduled_end_time: endIso || null,
       actual_start_time: actualStart || null,
       actual_end_time: actualEnd || null,
-      hide_details_in_share: hideDetailsInShare
+      hide_details_in_share: hideDetailsInShare,
+      is_all_day: isAllDay,
+      show_on_calendar: showOnCalendar,
+      show_on_task_list: showOnTaskList,
+      task_list_orders: newTaskListOrders
     };
 
     if (isExisting) {
@@ -202,23 +273,43 @@ export function TaskEventModal({ isOpen, onClose, event, onSave, onDelete, onDup
 
           const { data: targetEvents } = await query;
 
-          const oldStart = new Date(event.start).getTime();
-          const newStart = new Date(scheduledStart).getTime();
-          const startDelta = newStart - oldStart;
+          const oldStartMs = new Date(event.start).getTime();
+          const newStartMs = new Date(startIso).getTime();
+          const startDelta = newStartMs - oldStartMs;
 
-          const oldEnd = new Date(event.end || event.start).getTime();
-          const newEnd = new Date(scheduledEnd).getTime();
-          const endDelta = newEnd - oldEnd;
+          const oldEndMs = new Date(event.end || event.start).getTime();
+          const newEndMs = new Date(endIso).getTime();
+          const endDelta = newEndMs - oldEndMs;
 
-          const updates = targetEvents?.map(ev => ({
-            ...ev,
-            title,
-            description: description || null,
-            color_code: colorCode || null,
-            hide_details_in_share: hideDetailsInShare,
-            scheduled_start_time: new Date(new Date(ev.scheduled_start_time).getTime() + startDelta).toISOString(),
-            scheduled_end_time: new Date(new Date(ev.scheduled_end_time).getTime() + endDelta).toISOString(),
-          })) || [];
+          const recurrenceDayOffset = Math.round(startDelta / (1000 * 60 * 60 * 24));
+
+          const updates = targetEvents?.map(ev => {
+            const oldOrders = ev.task_list_orders || {};
+            let shiftedOrders = { ...oldOrders };
+            if (recurrenceDayOffset !== 0) {
+              shiftedOrders = {};
+              Object.keys(oldOrders).forEach(oldDateStr => {
+                const d = new Date(oldDateStr + 'T00:00:00');
+                d.setDate(d.getDate() + recurrenceDayOffset);
+                const newDateStr = format(d, 'yyyy-MM-dd');
+                shiftedOrders[newDateStr] = oldOrders[oldDateStr];
+              });
+            }
+
+            return {
+              ...ev,
+              title,
+              description: description || null,
+              color_code: colorCode || null,
+              hide_details_in_share: hideDetailsInShare,
+              is_all_day: isAllDay,
+              show_on_calendar: showOnCalendar,
+              show_on_task_list: showOnTaskList,
+              scheduled_start_time: new Date(new Date(ev.scheduled_start_time).getTime() + startDelta).toISOString(),
+              scheduled_end_time: new Date(new Date(ev.scheduled_end_time).getTime() + endDelta).toISOString(),
+              task_list_orders: shiftedOrders
+            };
+          }) || [];
 
           if (updates.length > 0) {
             await supabase.from('tasks_events').upsert(updates);
@@ -235,7 +326,9 @@ export function TaskEventModal({ isOpen, onClose, event, onSave, onDelete, onDup
             owner_user_id: user?.id,
             owner_organization_id: event.extendedProps?.owner_organization_id || null,
             assigned_to: event.extendedProps?.assigned_to || null,
-            is_all_day: event.allDay || false,
+            is_all_day: isAllDay,
+            show_on_calendar: showOnCalendar,
+            show_on_task_list: showOnTaskList,
             recurrence_group_id: groupId
           };
 
@@ -278,8 +371,8 @@ export function TaskEventModal({ isOpen, onClose, event, onSave, onDelete, onDup
   };
 
   return (
-    <div className="fixed w-full h-full top-0 left-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-      <div className={`${styles.glassCard} w-full max-w-lg mx-2 sm:mx-4 flex flex-col max-h-[90vh] `}>
+    <div ref={backdropRef} className="fixed w-full h-full top-0 left-0 z-50 flex items-center justify-center backdrop-blur-sm">
+      <div className={`${styles.glassCard} w-full max-w-lg mx-2 sm:mx-4 flex flex-col max-h-[90vh] !bg-neutral-950/75`}>
         <div className="flex justify-between items-center p-4 border-b border-[var(--glass-border)]">
           <h2 className="text-xl font-semibold">{event.id ? 'Edit Task' : 'New Task'}</h2>
           <button onClick={onClose} className="p-1 hover:bg-white/10 rounded-full transition-colors">
@@ -328,18 +421,59 @@ export function TaskEventModal({ isOpen, onClose, event, onSave, onDelete, onDup
               </div>
             </div>
 
-            <div className="flex items-center gap-2 mt-2">
-              <input
-                type="checkbox"
-                id="hideDetailsInShare"
-                checked={hideDetailsInShare}
-                onChange={(e) => setHideDetailsInShare(e.target.checked)}
-                className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 bg-black/20"
-                disabled={isEmployee}
-              />
-              <label htmlFor="hideDetailsInShare" className="text-sm font-medium text-[var(--text-secondary)]">
-                Hide details in shared views (show only as Busy)
-              </label>
+            <div className="flex flex-col gap-2 mt-2">
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="isAllDay"
+                  checked={isAllDay}
+                  onChange={(e) => setIsAllDay(e.target.checked)}
+                  className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 bg-black/20"
+                  disabled={isEmployee}
+                />
+                <label htmlFor="isAllDay" className="text-sm font-medium text-[var(--text-secondary)]">
+                  All Day
+                </label>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="showOnCalendar"
+                  checked={showOnCalendar}
+                  onChange={(e) => setShowOnCalendar(e.target.checked)}
+                  className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 bg-black/20"
+                  disabled={isEmployee}
+                />
+                <label htmlFor="showOnCalendar" className="text-sm font-medium text-[var(--text-secondary)]">
+                  Show on Calendar
+                </label>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="showOnTaskList"
+                  checked={showOnTaskList}
+                  onChange={(e) => setShowOnTaskList(e.target.checked)}
+                  className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 bg-black/20"
+                  disabled={isEmployee}
+                />
+                <label htmlFor="showOnTaskList" className="text-sm font-medium text-[var(--text-secondary)]">
+                  Show on Task List
+                </label>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="hideDetailsInShare"
+                  checked={hideDetailsInShare}
+                  onChange={(e) => setHideDetailsInShare(e.target.checked)}
+                  className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 bg-black/20"
+                  disabled={isEmployee}
+                />
+                <label htmlFor="hideDetailsInShare" className="text-sm font-medium text-[var(--text-secondary)]">
+                  Hide details in shared views (show only as Busy)
+                </label>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -348,14 +482,14 @@ export function TaskEventModal({ isOpen, onClose, event, onSave, onDelete, onDup
                   <Clock className="w-4 h-4" /> Scheduled Start
                 </label>
                 <input
-                  type={event?.allDay ? "date" : "datetime-local"}
-                  value={scheduledStart ? format(new Date(scheduledStart), event?.allDay ? "yyyy-MM-dd" : "yyyy-MM-dd'T'HH:mm") : ''}
+                  type={isAllDay ? "date" : "datetime-local"}
+                  value={scheduledStart ? format(new Date(scheduledStart), isAllDay ? "yyyy-MM-dd" : "yyyy-MM-dd'T'HH:mm") : ''}
                   onChange={(e) => {
                     if (!e.target.value) {
                       setScheduledStart('');
                       return;
                     }
-                    if (event?.allDay) {
+                    if (isAllDay) {
                       const [y, m, d] = e.target.value.split('-');
                       const localDate = new Date(Number(y), Number(m) - 1, Number(d));
                       setScheduledStart(localDate.toISOString());
@@ -373,14 +507,14 @@ export function TaskEventModal({ isOpen, onClose, event, onSave, onDelete, onDup
                   <Clock className="w-4 h-4" /> Scheduled End
                 </label>
                 <input
-                  type={event?.allDay ? "date" : "datetime-local"}
-                  value={scheduledEnd ? format(new Date(scheduledEnd), event?.allDay ? "yyyy-MM-dd" : "yyyy-MM-dd'T'HH:mm") : ''}
+                  type={isAllDay ? "date" : "datetime-local"}
+                  value={scheduledEnd ? format(new Date(scheduledEnd), isAllDay ? "yyyy-MM-dd" : "yyyy-MM-dd'T'HH:mm") : ''}
                   onChange={(e) => {
                     if (!e.target.value) {
                       setScheduledEnd('');
                       return;
                     }
-                    if (event?.allDay) {
+                    if (isAllDay) {
                       const [y, m, d] = e.target.value.split('-');
                       const localDate = new Date(Number(y), Number(m) - 1, Number(d));
                       setScheduledEnd(localDate.toISOString());

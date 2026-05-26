@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useScrollLock } from '@/hooks/useScrollLock';
 import styles from '@/styles/glassmorphism.module.css';
 import { X, Copy, CheckCircle2, Trash2, ExternalLink } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
@@ -238,11 +239,13 @@ export function ShareScheduleModal({ isOpen, onClose, events, user }: ShareSched
     }
   };
 
+  const backdropRef = useScrollLock(isOpen);
+
   if (!isOpen) return null;
 
   return (
-    <div className="fixed w-full h-full top-0 left-0 z-50 flex items-center justify-center backdrop-blur-sm">
-      <div className={`${styles.glassCard} w-full max-w-lg mx-2 sm:mx-4 flex flex-col max-h-[90vh]`}>
+    <div ref={backdropRef} className="fixed w-full h-full top-0 left-0 z-50 flex items-center justify-center backdrop-blur-sm">
+      <div className={`${styles.glassCard} w-full max-w-lg mx-2 sm:mx-4 flex flex-col max-h-[90vh] !bg-neutral-950/75`}>
         <div className="flex justify-between items-center p-4 border-b border-[var(--glass-border)]">
           <h2 className="text-xl font-semibold">{viewMode === 'create' ? 'Share Schedule' : 'Active Links'}</h2>
           <div className="flex items-center gap-2">

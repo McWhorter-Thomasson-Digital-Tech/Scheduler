@@ -21,6 +21,8 @@ export interface Profile {
   id: string;
   full_name: string | null;
   created_at: string;
+  show_reading_tracker: boolean;
+  show_assignment_tracker: boolean;
 }
 
 export interface Position {
@@ -49,6 +51,10 @@ export interface TaskEvent {
   actual_end_time: string | null;
   
   is_all_day: boolean;
+  show_on_calendar: boolean;
+  show_on_task_list: boolean;
+  task_list_orders: Record<string, number> | null;
+  is_completed: boolean;
   
   position_id: string | null;
   assigned_to: string | null;
@@ -69,4 +75,18 @@ export interface SharedSchedule {
   created_at: string;
   expires_at: string;
   payload: any;
+}
+
+export interface TrackerItem {
+  id: string;
+  type: 'reading' | 'assignment';
+  title: string;
+  description: string | null;
+  progress: number;
+  total: number;
+  due_date: string | null;
+  color_code: string;
+  owner_user_id: string;
+  created_at: string;
+  updated_at: string;
 }

@@ -56,7 +56,7 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center p-4">
       <div className={`${styles.glassCard} max-w-md w-full p-8`}>
         <div className="flex justify-center mb-4">
-          <img src="/logo.png" alt="ChronoDo Logo" className="w-16 h-16 rounded-2xl shadow-lg shadow-blue-500/20" />
+          <img src="/ChronoDo%20Logo%20Clear.png" alt="ChronoDo Logo" className="w-16 h-16 object-contain drop-shadow-[0_4px_12px_rgba(59,130,246,0.3)]" />
         </div>
         <h1 className="text-2xl font-bold mb-6 text-center">
           {isSignUp ? 'Create an Account' : 'Sign In to ChronoDo'}

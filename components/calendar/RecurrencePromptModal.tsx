@@ -1,7 +1,9 @@
 'use client';
 
+import { useRef } from 'react';
 import { X } from 'lucide-react';
 import styles from '@/styles/glassmorphism.module.css';
+import { useScrollLock } from '@/hooks/useScrollLock';
 
 interface RecurrencePromptModalProps {
   isOpen: boolean;
@@ -11,10 +13,12 @@ interface RecurrencePromptModalProps {
 }
 
 export function RecurrencePromptModal({ isOpen, onClose, onConfirm, action }: RecurrencePromptModalProps) {
+  const backdropRef = useScrollLock(isOpen);
+
   if (!isOpen) return null;
 
   return (
-    <div className="fixed w-full h-full top-0 left-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+    <div ref={backdropRef} className="fixed w-full h-full top-0 left-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm">
       <div className={`${styles.glassCard} w-full max-w-sm mx-4 flex flex-col`}>
         <div className="flex justify-between items-center p-4 border-b border-[var(--glass-border)]">
           <h2 className="text-lg font-semibold text-white">Recurring Event</h2>

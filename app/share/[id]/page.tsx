@@ -435,8 +435,8 @@ export default function SharedSchedulePage({ params }: { params: Promise<{ id: s
             >
               <Menu className="w-6 h-6" />
             </button>
-            <img src="/logo.png" alt="ChronoDo Logo" className="w-8 h-8 rounded-xl hidden sm:block shadow-lg shadow-blue-500/20" />
-            <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-400 flex items-center gap-2">
+            <img src="/ChronoDo%20Logo%20Clear.png" alt="ChronoDo Logo" className="w-8 h-8 object-contain drop-shadow-[0_2px_8px_rgba(59,130,246,0.15)]" />
+            <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-400 hidden sm:flex items-center gap-2">
               ChronoDo
             </h1>
             <span className="hidden sm:inline-flex ml-2 px-2 py-1 rounded text-xs font-medium bg-white/5 border border-white/10 text-white/80 items-center gap-1.5">

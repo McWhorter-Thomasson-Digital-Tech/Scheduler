@@ -1,7 +1,9 @@
 'use client';
 
+import { useRef } from 'react';
 import { X, Clock, Calendar as CalendarIcon, FileText } from 'lucide-react';
 import styles from '@/styles/glassmorphism.module.css';
+import { useScrollLock } from '@/hooks/useScrollLock';
 
 interface ReadOnlyTaskModalProps {
   isOpen: boolean;
@@ -10,6 +12,8 @@ interface ReadOnlyTaskModalProps {
 }
 
 export function ReadOnlyTaskModal({ isOpen, onClose, event }: ReadOnlyTaskModalProps) {
+  const backdropRef = useScrollLock(isOpen);
+
   if (!isOpen || !event) return null;
 
   const title = event.title;
@@ -30,7 +34,7 @@ export function ReadOnlyTaskModal({ isOpen, onClose, event }: ReadOnlyTaskModalP
   };
 
   return (
-    <div className="fixed w-full h-full top-0 left-0 z-[100] flex items-center justify-center backdrop-blur-sm p-4">
+    <div ref={backdropRef} className="fixed w-full h-full top-0 left-0 z-[100] flex items-center justify-center backdrop-blur-sm p-4">
       <div className={`${styles.glassCard} w-full max-w-md flex flex-col max-h-[90vh] overflow-hidden`}>
         {/* Header */}
         <div

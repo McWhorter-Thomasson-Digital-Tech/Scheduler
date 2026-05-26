@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useScrollLock } from '@/hooks/useScrollLock';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { createClient } from '@/lib/supabase/client';
 import styles from '@/styles/glassmorphism.module.css';
-import { Clock, Play, Square, AlertCircle, ArrowLeft, RotateCcw, HelpCircle } from 'lucide-react';
+import { Clock, Play, Square, AlertCircle, ArrowLeft, RotateCcw, HelpCircle, X } from 'lucide-react';
 import { format, differenceInSeconds, startOfDay, endOfDay, isToday } from 'date-fns';
 import { TaskEvent } from '@/types/database';
 import Link from 'next/link';
@@ -22,6 +23,8 @@ export default function TimeClockPage() {
   const [errorMsg, setErrorMsg] = useState('');
   const [fetching, setFetching] = useState(true);
   const [showHelp, setShowHelp] = useState(false);
+
+  const helpBackdropRef = useScrollLock(showHelp);
 
   // Live clock and timer
   useEffect(() => {
@@ -139,7 +142,7 @@ export default function TimeClockPage() {
 
     const { error } = await supabase
       .from('tasks_events')
-      .update({ actual_end_time: now })
+      .update({ actual_end_time: now, is_completed: true })
       .eq('id', activeTask.id);
 
     if (error) {
@@ -161,7 +164,7 @@ export default function TimeClockPage() {
 
     const { error } = await supabase
       .from('tasks_events')
-      .update({ actual_start_time: null, actual_end_time: null })
+      .update({ actual_start_time: null, actual_end_time: null, is_completed: false })
       .eq('id', task.id);
 
     if (error) {
@@ -199,7 +202,7 @@ export default function TimeClockPage() {
         </div>
         <div className="flex items-center gap-4 md:gap-8">
           <button
-            onClick={() => setShowHelp(!showHelp)}
+            onClick={() => setShowHelp(true)}
             className="p-2 text-[var(--text-secondary)] hover:text-white transition-colors flex items-center gap-2"
           >
             <HelpCircle className="w-5 h-5" />
@@ -207,7 +210,7 @@ export default function TimeClockPage() {
           </button>
           <div className="text-right">
             <div className="text-2xl font-mono tracking-wider font-bold text-white">
-            {format(currentTime, 'h:mm:ss a')}
+              {format(currentTime, 'h:mm:ss a')}
             </div>
             <div className="text-sm text-[var(--text-secondary)]">
               {format(currentTime, 'EEEE, MMMM do, yyyy')}
@@ -216,21 +219,7 @@ export default function TimeClockPage() {
         </div>
       </header>
 
-      {/* Help Dropdown Section */}
-      <div className={`mx-4 overflow-hidden transition-all duration-300 ease-in-out ${showHelp ? 'max-h-96 opacity-100 mb-4' : 'max-h-0 opacity-0 mb-0'}`}>
-        <div className={`${styles.glassCard} p-6 relative`}>
-          <h3 className="text-lg font-semibold mb-3 text-white flex items-center gap-2">
-            <HelpCircle className="w-5 h-5 text-emerald-400" />
-            How to Use the Time Clock
-          </h3>
-          <ul className="list-disc list-inside text-[var(--text-secondary)] space-y-2 text-sm max-w-3xl">
-            <li><strong>Clock In:</strong> Select a task from your schedule on the right to start tracking your time.</li>
-            <li><strong>Clock Out:</strong> Click the large "Clock Out" button when you are finished or taking a break.</li>
-            <li><strong>Reset Timer:</strong> If you made a mistake, you can reset the timer using the reset button.</li>
-            <li><strong>Task Visibility:</strong> Only your tasks scheduled for today will appear here.</li>
-          </ul>
-        </div>
-      </div>
+
 
       <main className="p-4 pt-0 pb-16 relative flex-1 flex flex-col md:flex-row gap-6 max-w-7xl mx-auto w-full">
         {/* Left Column: Active Task & Actions */}
@@ -362,6 +351,38 @@ export default function TimeClockPage() {
           )}
         </div>
       </main>
+
+      {/* Help Modal */}
+      {showHelp && (
+        <div ref={helpBackdropRef} className="fixed inset-0 z-[100] flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className={`${styles.glassCard} w-full max-w-md p-6 relative !bg-neutral-950/75`} style={{ transform: 'none' }}>
+            <button
+              onClick={() => setShowHelp(false)}
+              className="absolute top-4 right-4 p-2 text-white/50 hover:text-white transition-colors rounded-full hover:bg-white/10"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <h2 className="text-xl font-bold mb-4 text-white flex items-center gap-2">
+              <HelpCircle className="w-5 h-5 text-emerald-400" />
+              How to Use the Time Clock
+            </h2>
+            <ul className="list-disc list-inside text-[var(--text-secondary)] space-y-2 text-sm">
+              <li><strong className="text-white">Clock In:</strong> Select a task from your schedule on the right to start tracking your time.</li>
+              <li><strong className="text-white">Clock Out:</strong> Click the large "Clock Out" button when you are finished or taking a break.</li>
+              <li><strong className="text-white">Reset Timer:</strong> If you made a mistake, you can reset the timer using the reset button.</li>
+              <li><strong className="text-white">Task Visibility:</strong> Only your tasks scheduled for today will appear here.</li>
+            </ul>
+            <div className="mt-6 flex justify-end">
+              <button
+                onClick={() => setShowHelp(false)}
+                className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors text-sm font-medium"
+              >
+                Got it
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
